@@ -9,7 +9,7 @@ struct GitDiffParser: ParsableCommand {
             Inputs are streamed, so arbitrarily large diffs and logs are fine. \
             Pass '-' as any file argument to read that input from stdin.
             """,
-        version: "1.0.0",
+        version: "1.1.0",
         subcommands: [Changes.self, Filter.self]
     )
 }

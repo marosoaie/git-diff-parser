@@ -1,4 +1,6 @@
 import Testing
+@testable import BuildLogKit
+@testable import DiffDiagnostics
 @testable import GitDiffKit
 
 @Suite("LogParser")
@@ -14,7 +16,7 @@ struct LogParserTests {
         /repo/Sources/App/Bar.swift:7:1: warning: Line should be 120 characters or less (line_length)
         /repo/Sources/App/Baz.swift:9:5: remark: something informational
         """
-        let diagnostics = LogParser.diagnostics(in: log)
+        let diagnostics = ClangStyleLogParser.diagnostics(in: log)
         #expect(diagnostics == [
             Diagnostic(
                 path: "/repo/Sources/App/Foo.swift", line: 42, column: 13,
@@ -44,13 +46,13 @@ struct LogParserTests {
         /repo/A.swift:1:1: warning: dup
         /repo/A.swift:1:1: warning: not a dup, different message
         """
-        #expect(LogParser.diagnostics(in: log).count == 2)
+        #expect(ClangStyleLogParser.diagnostics(in: log).count == 2)
     }
 
     @Test("paths containing spaces are kept intact")
     func pathsWithSpaces() {
         let log = "/repo/My App/View Models/Foo.swift:3:1: error: boom"
-        let diagnostics = LogParser.diagnostics(in: log)
+        let diagnostics = ClangStyleLogParser.diagnostics(in: log)
         #expect(diagnostics.count == 1)
         #expect(diagnostics[0].path == "/repo/My App/View Models/Foo.swift")
         #expect(diagnostics[0].severity == .error)

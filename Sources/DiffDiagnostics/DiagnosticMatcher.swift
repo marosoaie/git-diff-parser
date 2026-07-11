@@ -1,4 +1,6 @@
+import BuildLogKit
 import Foundation
+import GitDiffKit
 
 /// A diagnostic that landed on a line the PR touched, with its path resolved
 /// to the repo-relative form used by the diff (what code-review UIs expect).
@@ -9,19 +11,24 @@ public struct MatchedDiagnostic: Sendable, Equatable, Codable {
     public var column: Int?
     public var severity: Diagnostic.Severity
     public var message: String
+    /// The violated rule, when the log parser extracted one
+    /// (see `Diagnostic.rule`).
+    public var rule: String?
 
     public init(
         path: String,
         line: Int,
         column: Int? = nil,
         severity: Diagnostic.Severity,
-        message: String
+        message: String,
+        rule: String? = nil
     ) {
         self.path = path
         self.line = line
         self.column = column
         self.severity = severity
         self.message = message
+        self.rule = rule
     }
 
     // The wire format keys the path as "file" — the vocabulary GitHub-style
@@ -32,6 +39,7 @@ public struct MatchedDiagnostic: Sendable, Equatable, Codable {
         case column
         case severity
         case message
+        case rule
     }
 }
 
@@ -100,7 +108,8 @@ public enum DiagnosticMatcher {
                     line: diagnostic.line,
                     column: diagnostic.column,
                     severity: diagnostic.severity,
-                    message: diagnostic.message
+                    message: diagnostic.message,
+                    rule: diagnostic.rule
                 )
             )
         }

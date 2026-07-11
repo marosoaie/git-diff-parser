@@ -7,7 +7,7 @@ import Foundation
 /// `\n` byte, which is unambiguous in UTF-8 (0x0A never occurs inside a
 /// multi-byte sequence), and a partial trailing line is carried over to the
 /// next chunk. A trailing `\r` is stripped so CRLF input parses identically.
-protocol ByteLineConsumer {
+package protocol ByteLineConsumer {
     /// Partial line carried across chunk boundaries.
     var partialLine: [UInt8] { get set }
 
@@ -16,7 +16,7 @@ protocol ByteLineConsumer {
 }
 
 extension ByteLineConsumer {
-    mutating func consumeChunk(_ chunk: ArraySlice<UInt8>) {
+    package mutating func consumeChunk(_ chunk: ArraySlice<UInt8>) {
         let newline = UInt8(ascii: "\n")
         var start = chunk.startIndex
         while let terminator = chunk[start...].firstIndex(of: newline) {
@@ -36,7 +36,7 @@ extension ByteLineConsumer {
     }
 
     /// Flushes an unterminated final line. Call once, when input is done.
-    mutating func flushPartialLine() {
+    package mutating func flushPartialLine() {
         guard !partialLine.isEmpty else { return }
         let line = partialLine
         partialLine.removeAll(keepingCapacity: false)

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import BuildLogKit
 @testable import GitDiffKit
 
 @Suite("LineRangeSet")
@@ -159,7 +160,7 @@ struct StreamingTests {
         /repo/B.swift:1: error: boom
         """
         let bytes = Array(log.utf8)
-        var parser = LogParser()
+        var parser = ClangStyleLogParser()
         var index = 0
         while index < bytes.count {
             let end = min(index + chunkSize, bytes.count)
@@ -167,7 +168,7 @@ struct StreamingTests {
             index = end
         }
         let streamed = parser.finalize()
-        #expect(streamed == LogParser.diagnostics(in: log))
+        #expect(streamed == ClangStyleLogParser.diagnostics(in: log))
         #expect(streamed.count == 2)
     }
 }

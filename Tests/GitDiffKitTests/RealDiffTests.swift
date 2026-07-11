@@ -55,6 +55,25 @@ struct RealDiffTests {
         ), as: UTF8.self)
         #expect(filtered.contains("on a changed line"))
         #expect(!filtered.contains("far from any change"))
+
+        // --tool swiftlint must extract the rule and surface it as the
+        // GitHub annotation title.
+        let lintLogURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("git-diff-parser-fixture-lint.log")
+        try Data("""
+        /ci/include/swift/AST/Types.h:4789:1: warning: Line Length Violation: too long (line_length)
+        """.utf8).write(to: lintLogURL)
+        defer { try? FileManager.default.removeItem(at: lintLogURL) }
+        let annotations = String(decoding: try CommandLineTool.run(
+            arguments: [
+                "filter", lintLogURL.path,
+                "--diff", fixtureURL.path,
+                "--tool", "swiftlint",
+                "--format", "github",
+            ]
+        ), as: UTF8.self)
+        #expect(annotations.contains("::warning file=include/swift/AST/Types.h,line=4789,col=1,title=line_length::"))
+        #expect(annotations.contains("::Line Length Violation: too long"))
     }
 
     @Test("real diff parses identically through any chunking")

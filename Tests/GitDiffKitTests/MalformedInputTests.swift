@@ -1,4 +1,5 @@
 import Testing
+@testable import BuildLogKit
 @testable import GitDiffKit
 
 /// Regression tests for hostile or malformed input: none of these may crash,
@@ -64,7 +65,7 @@ struct MalformedInputTests {
     @Test("clang 'fatal error:' diagnostics are recognized as errors")
     func fatalErrorSeverity() {
         let log = "/repo/t.c:1:10: fatal error: 'nope.h' file not found"
-        #expect(LogParser.diagnostics(in: log) == [
+        #expect(ClangStyleLogParser.diagnostics(in: log) == [
             Diagnostic(
                 path: "/repo/t.c", line: 1, column: 10,
                 severity: .error, message: "'nope.h' file not found"

@@ -1,4 +1,6 @@
 import ArgumentParser
+import BuildLogKit
+import DiffDiagnostics
 import Foundation
 import GitDiffKit
 
@@ -8,13 +10,15 @@ struct Filter: ParsableCommand {
         discussion: """
             The log is scanned for clang-style diagnostics \
             ("path:line:col: warning: message"), the format emitted by swiftc, \
-            xcodebuild, SwiftLint, and clang-tidy; all other log lines are \
-            ignored. Absolute log paths are matched to repo-relative diff paths \
-            by longest component-aligned suffix, so a --repo-root is rarely \
-            needed.
+            xcodebuild, SwiftLint, and SwiftFormat; all other log lines are \
+            ignored. Pick a --tool to additionally extract the violated rule \
+            (SwiftLint rule identifier, SwiftFormat rule name, clang warning \
+            flag) into the output. Absolute log paths are matched to \
+            repo-relative diff paths by longest component-aligned suffix, so \
+            a --repo-root is rarely needed.
 
             Example:
-              git-diff-parser filter build.log --diff pr.diff --format github
+              git-diff-parser filter lint.log --diff pr.diff --tool swiftlint --format github
             """
     )
 
@@ -24,11 +28,30 @@ struct Filter: ParsableCommand {
         case text
     }
 
+    enum Tool: String, CaseIterable, ExpressibleByArgument {
+        case generic
+        case xcodebuild
+        case swiftlint
+        case swiftformat
+
+        func makeParser() -> any LogParsing {
+            switch self {
+            case .generic: ClangStyleLogParser()
+            case .xcodebuild: XcodeLogParser()
+            case .swiftlint: SwiftLintLogParser()
+            case .swiftformat: SwiftFormatLogParser()
+            }
+        }
+    }
+
     @Argument(help: "Path to a build or lint log, or '-' for stdin.")
     var logPath: String
 
     @Option(help: "Path to the unified diff to filter against, or '-' for stdin.")
     var diff: String
+
+    @Option(help: "The tool that produced the log. Tool-specific parsers also extract the violated rule; generic handles any clang-style log.")
+    var tool: Tool = .generic
 
     @Option(help: "Output format: structured (json), GitHub workflow annotation commands (github), or clang-style lines (text).")
     var format: OutputFormat = .json
@@ -53,7 +76,7 @@ struct Filter: ParsableCommand {
 
     func run() throws {
         let changes = try ChangedLines(streamingFrom: diff)
-        var logParser = LogParser()
+        var logParser = tool.makeParser()
         try forEachChunk(ofInput: logPath) { logParser.consume($0) }
         let matched = DiagnosticMatcher.match(
             logParser.finalize(),
@@ -72,7 +95,8 @@ struct Filter: ParsableCommand {
         case .text:
             for diagnostic in matched {
                 let column = diagnostic.column.map { ":\($0)" } ?? ""
-                print("\(diagnostic.path):\(diagnostic.line)\(column): \(diagnostic.severity.rawValue): \(diagnostic.message)")
+                let rule = diagnostic.rule.map { " (\($0))" } ?? ""
+                print("\(diagnostic.path):\(diagnostic.line)\(column): \(diagnostic.severity.rawValue): \(diagnostic.message)\(rule)")
             }
         }
 
@@ -107,6 +131,9 @@ struct Filter: ParsableCommand {
         var properties = "file=\(escapeProperty(diagnostic.path)),line=\(diagnostic.line)"
         if let column = diagnostic.column {
             properties += ",col=\(column)"
+        }
+        if let rule = diagnostic.rule {
+            properties += ",title=\(escapeProperty(rule))"
         }
         return "::\(command) \(properties)::\(escapeMessage(diagnostic.message))"
     }

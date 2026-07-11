@@ -62,6 +62,7 @@ is ignored, so pipe the raw build output straight in:
 
 | Option | Meaning |
 |---|---|
+| `--tool <tool>` | Log dialect: `generic` (default, any clang-style log), `xcodebuild`, `swiftlint`, or `swiftformat`. Tool-specific parsers also extract the violated rule — SwiftLint rule identifier, SwiftFormat rule name, clang warning flag — into the `rule` field (and the GitHub annotation title) |
 | `--format json` | Structured output for your own PR-comment bot (default) |
 | `--format github` | `::warning file=…,line=…::…` workflow commands — GitHub renders these as PR annotations automatically |
 | `--format text` | clang-style lines, for humans |
@@ -155,34 +156,43 @@ in offline environments).
 
 ## Library use
 
-`GitDiffKit` is exported as a library product, so you can embed the parsing
-in other internal tooling — e.g. a Danger-Swift plugin — without shelling out
-to the CLI:
+The package exports three library products, so other internal tooling — e.g.
+a Danger-Swift plugin — can depend on exactly the layer it needs:
+
+| Product | What it does |
+|---|---|
+| `GitDiffKit` | Unified git diffs → changed files and line ranges (`DiffParser`, `ChangedLines`) |
+| `BuildLogKit` | Build/lint logs → diagnostics. `ClangStyleLogParser` handles any clang-style log; `XcodeLogParser`, `SwiftLintLogParser`, and `SwiftFormatLogParser` additionally extract the violated rule. All conform to `LogParsing` |
+| `DiffDiagnostics` | The join: `DiagnosticMatcher` filters diagnostics to the lines a diff touches (depends on both of the above) |
 
 ```swift
 // Package.swift
 .package(url: "https://github.com/marosoaie/git-diff-parser.git", branch: "main"),
-// target dependency:
+// target dependencies (pick what you need):
 .product(name: "GitDiffKit", package: "git-diff-parser"),
-``` All model types are `Sendable`; the package builds with Swift 6.2 strict
+.product(name: "BuildLogKit", package: "git-diff-parser"),
+.product(name: "DiffDiagnostics", package: "git-diff-parser"),
+```
+
+All model types are `Sendable`; the package builds with Swift 6.2 strict
 concurrency plus the upcoming-feature flags (`ExistentialAny`,
 `MemberImportVisibility`, `InferIsolatedConformances`,
 `NonisolatedNonsendingByDefault`, strict memory safety).
 
 ```swift
+import BuildLogKit
+import DiffDiagnostics
 import GitDiffKit
 
-// Whole-string convenience:
-let changes = ChangedLines(diff: diffText)
-
-// Streaming, for inputs that shouldn't be held in memory:
+// Whole-string convenience — or stream chunks into a DiffParser for
+// inputs that shouldn't be held in memory:
 var parser = DiffParser()
 while let chunk = nextChunk() { parser.consume(chunk) }   // Data, [UInt8], or String
-let changes = parser.finalize()
+let changes = parser.finalize()                           // == ChangedLines(diff: wholeText)
 
 changes.contains(line: 42, in: "Sources/App/Foo.swift")   // binary search
 let kept = DiagnosticMatcher.match(
-    LogParser.diagnostics(in: logText),
+    SwiftLintLogParser.diagnostics(in: lintLog),          // rule-aware
     against: changes
 )
 ```

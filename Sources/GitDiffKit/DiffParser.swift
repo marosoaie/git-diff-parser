@@ -1,4 +1,5 @@
 import Foundation
+import StreamParsing
 
 /// Streaming parser for unified diffs as produced by `git diff` / `git show`.
 ///
@@ -12,7 +13,7 @@ import Foundation
 ///     while let chunk = readSomeBytes() { parser.consume(chunk) }
 ///     let changes = parser.finalize()
 public struct DiffParser: ByteLineConsumer, Sendable {
-    var partialLine: [UInt8] = []
+    package var partialLine: [UInt8] = []
 
     private var changes = ChangedLines()
 
@@ -58,7 +59,7 @@ public struct DiffParser: ByteLineConsumer, Sendable {
     private static let diffLinePrefix = Array("diff ".utf8)
     private static let binaryPrefix = Array("Binary files ".utf8)
 
-    mutating func processLine(_ line: ArraySlice<UInt8>) {
+    package mutating func processLine(_ line: ArraySlice<UInt8>) {
         if remainingOld > 0 || remainingNew > 0 {
             // A bare "diff " line can only appear mid-hunk when the hunk was
             // truncated: well-formed content lines always carry a +/-/space
