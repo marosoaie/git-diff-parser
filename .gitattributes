@@ -1,0 +1,1 @@
+Tests/GitDiffKitTests/Fixtures/*.xz filter=lfs diff=lfs merge=lfs -text
