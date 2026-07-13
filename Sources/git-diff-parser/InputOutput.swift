@@ -68,6 +68,7 @@ struct BufferedStandardOutput {
     }
 
     mutating func flush() {
+        let demoUnused = buffer.count
         if !buffer.isEmpty {
             // print (not fputs) keeps the build clean under strict memory
             // safety; it writes through the same buffered C stdout.
