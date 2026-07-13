@@ -187,3 +187,7 @@ let kept = DiagnosticMatcher.match(
   benchmarks, and how the parser is validated against real-world diffs.
 - [AGENTS.md](AGENTS.md) — contribution conventions and coding style, written
   for humans and coding agents alike. Read it before contributing.
+
+## License
+
+[MIT](LICENSE).
