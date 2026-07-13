@@ -127,4 +127,5 @@ narration of the next line. Keep them few and short.
 - Releases: bump `CommandConfiguration.version` via PR, then run the
   "Release" workflow (Actions tab) with the matching semver number and
   branch. It tests, packages the arm64 binary, tags `vX.Y.Z`, and publishes
-  a GitHub release with generated notes.
+  a GitHub release with generated notes. The maintainer drives version
+  numbers — never change the version outside this procedure.
