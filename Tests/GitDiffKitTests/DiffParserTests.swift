@@ -155,14 +155,17 @@ struct DiffParserTests {
     func emptyContextLine() {
         // Some pipelines strip the single space marker from blank context
         // lines; the parser must treat the empty line as context.
-        let diff = "diff --git a/f.txt b/f.txt\n"
-            + "--- a/f.txt\n"
-            + "+++ b/f.txt\n"
-            + "@@ -1,3 +1,4 @@\n"
-            + " a\n"
-            + "\n"
-            + "+added\n"
-            + " b\n"
+        let diff = """
+            diff --git a/f.txt b/f.txt
+            --- a/f.txt
+            +++ b/f.txt
+            @@ -1,3 +1,4 @@
+             a
+
+            +added
+             b
+
+            """
         #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [3]])
     }
 
@@ -210,12 +213,15 @@ struct DiffParserTests {
 
     @Test("git diff -R's swapped a/ prefix is stripped on the new side")
     func reversedDiffPrefix() {
-        let diff = "diff --git b/f.txt a/f.txt\n"
-            + "--- b/f.txt\n"
-            + "+++ a/f.txt\n"
-            + "@@ -1 +1,2 @@\n"
-            + " x\n"
-            + "+y\n"
+        let diff = """
+            diff --git b/f.txt a/f.txt
+            --- b/f.txt
+            +++ a/f.txt
+            @@ -1 +1,2 @@
+             x
+            +y
+
+            """
         #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [2]])
     }
 
@@ -223,12 +229,15 @@ struct DiffParserTests {
     func noPrefixSingleLetterDirectory() {
         // Real git prefix pairs always differ; the same letter on both
         // header sides is a genuine directory, not a prefix.
-        let diff = "diff --git c/w/f1.txt c/w/f1.txt\n"
-            + "--- c/w/f1.txt\n"
-            + "+++ c/w/f1.txt\n"
-            + "@@ -1 +1,2 @@\n"
-            + " x\n"
-            + "+y\n"
+        let diff = """
+            diff --git c/w/f1.txt c/w/f1.txt
+            --- c/w/f1.txt
+            +++ c/w/f1.txt
+            @@ -1 +1,2 @@
+             x
+            +y
+
+            """
         #expect(ChangedLines(diff: diff).lineSets == ["c/w/f1.txt": [2]])
     }
 

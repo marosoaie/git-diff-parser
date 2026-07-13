@@ -92,6 +92,11 @@ it the autoreleased chunks accumulate and streaming silently degrades to
 whole-file memory. Store line sets as merged ranges (`LineRangeSet`), never
 per-line collections.
 
+**Multiline string literals over `+`-concatenated literals** — for any
+multi-part string (fixtures, messages, help text), use `"""` with `\`
+line-continuations and interpolation. Significant trailing whitespace inside
+a literal is spelled `\u{20}` so editors and linters can't eat it.
+
 **Comments explain why, not what** — constraints, traps, and justifications
 (e.g. why a loop stays imperative, why a pool per read iteration), never
 narration of the next line. Keep them few and short.

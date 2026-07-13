@@ -100,10 +100,10 @@ struct Filter: ParsableCommand {
             matched.forEach { diagnostic in
                 let column = diagnostic.column.map { ":\($0)" } ?? ""
                 let rule = diagnostic.rule.map { " (\($0))" } ?? ""
-                print(
-                    "\(diagnostic.path):\(diagnostic.line)\(column): "
-                        + "\(diagnostic.severity.rawValue): \(diagnostic.message)\(rule)"
-                )
+                print("""
+                    \(diagnostic.path):\(diagnostic.line)\(column): \
+                    \(diagnostic.severity.rawValue): \(diagnostic.message)\(rule)
+                    """)
             }
         }
 

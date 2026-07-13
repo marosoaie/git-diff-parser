@@ -109,13 +109,14 @@ struct StreamingTests {
 
         """#
         // A big generated new file so runs collapse into a single range.
-        diff += "diff --git a/Big.swift b/Big.swift\n"
-        diff += "--- /dev/null\n"
-        diff += "+++ b/Big.swift\n"
-        diff += "@@ -0,0 +1,5000 @@\n"
-        for i in 1...5000 {
-            diff += "+line \(i) with some ünïcode ✅ padding\n"
-        }
+        diff += """
+            diff --git a/Big.swift b/Big.swift
+            --- /dev/null
+            +++ b/Big.swift
+            @@ -0,0 +1,5000 @@
+
+            """
+        diff += (1...5000).map { "+line \($0) with some ünïcode ✅ padding\n" }.joined()
         return diff
     }()
 
@@ -153,24 +154,30 @@ struct StreamingTests {
 
     @Test("input without a trailing newline still counts the last line")
     func unterminatedLastLine() {
-        let diff = "diff --git a/f.txt b/f.txt\n"
-            + "--- a/f.txt\n"
-            + "+++ b/f.txt\n"
-            + "@@ -0,0 +1,2 @@\n"
-            + "+one\n"
-            + "+two"  // no trailing \n
+        // No newline after the final line.
+        let diff = """
+            diff --git a/f.txt b/f.txt
+            --- a/f.txt
+            +++ b/f.txt
+            @@ -0,0 +1,2 @@
+            +one
+            +two
+            """
         #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [1, 2]])
     }
 
     @Test("CRLF line endings parse identically to LF")
     func crlf() {
-        let lf = "diff --git a/f.txt b/f.txt\n"
-            + "--- a/f.txt\n"
-            + "+++ b/f.txt\n"
-            + "@@ -1,2 +1,3 @@\n"
-            + " ctx\n"
-            + "+added\n"
-            + " ctx\n"
+        let lf = """
+            diff --git a/f.txt b/f.txt
+            --- a/f.txt
+            +++ b/f.txt
+            @@ -1,2 +1,3 @@
+             ctx
+            +added
+             ctx
+
+            """
         let crlf = lf.replacingOccurrences(of: "\n", with: "\r\n")
         #expect(ChangedLines(diff: crlf) == ChangedLines(diff: lf))
         #expect(ChangedLines(diff: crlf).lineSets == ["f.txt": [2]])
@@ -181,12 +188,15 @@ struct StreamingTests {
         // A 1.5 MiB context line exceeds the 1 MiB cap; hunk accounting and
         // the following added line must be unaffected, whatever the chunking.
         let giant = String(repeating: "g", count: (1 << 20) + (1 << 19))
-        let diff = "diff --git a/f b/f\n"
-            + "--- a/f\n"
-            + "+++ b/f\n"
-            + "@@ -1,2 +1,2 @@\n"
-            + " \(giant)\n"
-            + "+z\n"
+        let diff = """
+            diff --git a/f b/f
+            --- a/f
+            +++ b/f
+            @@ -1,2 +1,2 @@
+             \(giant)
+            +z
+
+            """
         let whole = ChangedLines(diff: diff)
         #expect(whole.lineSets == ["f": [2]])
 
@@ -205,8 +215,11 @@ struct StreamingTests {
         // Same for logs: a diagnostic starting beyond the cap is dropped,
         // and identically so for any chunking.
         let junk = String(repeating: "j", count: (1 << 20) + 100)
-        let log = junk + " /repo/A.swift:1:1: warning: beyond the cap\n"
-            + "/repo/B.swift:2:2: warning: kept\n"
+        let log = """
+            \(junk) /repo/A.swift:1:1: warning: beyond the cap
+            /repo/B.swift:2:2: warning: kept
+
+            """
         let wholeLog = ClangStyleLogParser.diagnostics(in: log)
         #expect(wholeLog.map(\.path) == ["/repo/B.swift"])
         var logParser = ClangStyleLogParser()
