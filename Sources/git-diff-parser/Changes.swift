@@ -41,12 +41,12 @@ struct Changes: ParsableCommand {
             }
             print(try JSON.encode(entries))
         case .text:
+            // Nested forEach (not flatMap) so a kernel-sized result streams
+            // through the buffer instead of materializing millions of lines.
             var output = BufferedStandardOutput()
-            for path in changes.sortedPaths {
-                for range in changes.ranges(in: path) {
-                    for line in range {
-                        output.writeLine("\(path):\(line)")
-                    }
+            changes.sortedPaths.forEach { path in
+                changes.ranges(in: path).forEach { range in
+                    range.forEach { output.writeLine("\(path):\($0)") }
                 }
             }
             output.flush()

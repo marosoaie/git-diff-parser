@@ -92,14 +92,12 @@ public struct ClangStyleLogParser: LogParsing, ByteLineConsumer {
     /// Fast pre-filter: a matching line necessarily contains one of the
     /// severity words followed by a colon.
     private func containsSeverityMarker(_ line: ArraySlice<UInt8>) -> Bool {
-        var index = line.startIndex
-        while index < line.endIndex {
-            for marker in Self.severityMarkers
-            where line[index] == marker[0] && line[index...].starts(with: marker) {
-                return true
+        // Hot path (runs per byte of the log); the first-byte comparison
+        // rejects almost every position before the full starts(with:).
+        line.indices.contains { index in
+            Self.severityMarkers.contains { marker in
+                line[index] == marker[0] && line[index...].starts(with: marker)
             }
-            index += 1
         }
-        return false
     }
 }

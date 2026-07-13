@@ -89,11 +89,9 @@ struct Filter: ParsableCommand {
         case .json:
             print(try JSON.encode(matched))
         case .github:
-            for diagnostic in matched {
-                print(githubAnnotation(for: diagnostic))
-            }
+            matched.forEach { print(githubAnnotation(for: $0)) }
         case .text:
-            for diagnostic in matched {
+            matched.forEach { diagnostic in
                 let column = diagnostic.column.map { ":\($0)" } ?? ""
                 let rule = diagnostic.rule.map { " (\($0))" } ?? ""
                 print("\(diagnostic.path):\(diagnostic.line)\(column): \(diagnostic.severity.rawValue): \(diagnostic.message)\(rule)")

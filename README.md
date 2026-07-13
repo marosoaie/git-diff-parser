@@ -197,6 +197,14 @@ let kept = DiagnosticMatcher.match(
 )
 ```
 
+## Conventions
+
+Coding style and project conventions — functional style over loops, value
+types only, strict concurrency, never trapping on untrusted input, oracle-
+based testing — live in [AGENTS.md](AGENTS.md), written to be readable by
+both humans and coding agents (any tool, any model). Read it before
+contributing.
+
 ## Matching semantics (the fine print)
 
 - Log paths are usually absolute (`/Users/ci/checkout/Sources/App/Foo.swift`)

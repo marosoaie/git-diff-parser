@@ -87,33 +87,25 @@ public enum DiagnosticMatcher {
             // repo-relative: match on the longest diff path the log path
             // ends with (component-aligned, to avoid `Bar.swift` matching
             // `FooBar.swift`).
-            var best: String?
-            for candidate in changes.files.keys
-            where path == candidate || path.hasSuffix("/" + candidate) {
-                if best == nil || candidate.count > best!.count {
-                    best = candidate
-                }
-            }
-            return best
+            return changes.files.keys
+                .filter { path == $0 || path.hasSuffix("/" + $0) }
+                .max { $0.count < $1.count }
         }
 
-        var matched: [MatchedDiagnostic] = []
-        for diagnostic in diagnostics {
+        return diagnostics.compactMap { diagnostic -> MatchedDiagnostic? in
             guard let path = resolve(diagnostic.path),
                   changes.contains(line: diagnostic.line, in: path, tolerance: tolerance)
-            else { continue }
-            matched.append(
-                MatchedDiagnostic(
-                    path: path,
-                    line: diagnostic.line,
-                    column: diagnostic.column,
-                    severity: diagnostic.severity,
-                    message: diagnostic.message,
-                    rule: diagnostic.rule
-                )
+            else { return nil }
+            return MatchedDiagnostic(
+                path: path,
+                line: diagnostic.line,
+                column: diagnostic.column,
+                severity: diagnostic.severity,
+                message: diagnostic.message,
+                rule: diagnostic.rule
             )
         }
-        return matched.sorted {
+        .sorted {
             ($0.path, $0.line, $0.column ?? 0, $0.message)
                 < ($1.path, $1.line, $1.column ?? 0, $1.message)
         }

@@ -115,13 +115,9 @@ public struct ChangedLines: Sendable, Equatable {
     /// hold plain line sets. Entries whose set is empty are discarded, so
     /// `files` never contains files with no changed lines.
     public init(files: [String: Set<Int>]) {
-        for (path, lines) in files where !lines.isEmpty {
-            var ranges = LineRangeSet()
-            for line in lines.sorted() {
-                ranges.insert(line)
-            }
-            self.files[path] = ranges
-        }
+        self.files = files
+            .filter { !$0.value.isEmpty }
+            .mapValues { lines in LineRangeSet(lines.sorted().map { $0...$0 }) }
     }
 
     public var isEmpty: Bool { files.isEmpty }
