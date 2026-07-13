@@ -1,0 +1,62 @@
+name: PR checks
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  tests-and-diagnostics:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Deep enough to reach the merge base for the three-dot diff.
+          fetch-depth: 0
+          # Real payloads for the LFS test fixtures (tests would fall back
+          # to downloading them otherwise).
+          lfs: true
+
+      - name: Select newest Xcode (Swift 6.2+ required)
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          swift --version
+
+      # The diff and the build must come from the same tree: this checkout
+      # is the PR merge commit, so diff it against the base with '...'.
+      - name: Diff against base
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git diff "origin/${{ github.base_ref }}...HEAD" > /tmp/pr.diff
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/git-diff-parser-tests
+          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.resolved') }}
+
+      # Compile everything (tool + tests) once, keeping the raw compiler
+      # output: it is the input for the warning gate below.
+      - name: Build (capture compiler diagnostics)
+        run: |
+          set -o pipefail
+          swift build --build-tests 2>&1 | tee /tmp/build.log
+
+      - name: Run tests
+        run: swift test --skip-build
+
+      # Dogfood: annotate any diagnostic that lands on a PR-touched line and
+      # fail the job if the PR introduces warnings or errors there. Runs even
+      # when tests fail so the annotations are never swallowed.
+      - name: Fail on new warnings in changed lines
+        if: ${{ !cancelled() }}
+        run: |
+          .build/debug/git-diff-parser filter /tmp/build.log \
+            --diff /tmp/pr.diff \
+            --tool xcodebuild \
+            --format github \
+            --fail-on warning

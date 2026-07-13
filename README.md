@@ -104,6 +104,12 @@ GitHub attaches them to the PR's changed lines in the Files tab:
           --format github --fail-on error
 ```
 
+This repository dogfoods exactly that recipe: every PR runs
+[.github/workflows/pr.yml](.github/workflows/pr.yml), which executes the test
+suite and then filters the build's own compiler output against the PR diff —
+new warnings on changed lines annotate the PR and fail the job
+(`--fail-on warning`).
+
 **Danger / custom bot.** Use `--format json` and post each entry as an inline
 comment via your API of choice; `file` is repo-relative and `line` is the
 new-side line number, which is exactly what the GitHub review-comment API
