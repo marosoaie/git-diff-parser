@@ -119,3 +119,7 @@ narration of the next line. Keep them few and short.
   verification performed.
 - Large binary fixtures go through Git LFS (`*.xz` is tracked); anything
   over ~1 MB that isn't LFS needs a good reason.
+- Releases: bump `CommandConfiguration.version` via PR, then run the
+  "Release" workflow (Actions tab) with the matching semver number and
+  branch. It tests, packages the arm64 binary, tags `vX.Y.Z`, and publishes
+  a GitHub release with generated notes.

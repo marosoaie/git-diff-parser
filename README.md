@@ -17,7 +17,12 @@ Inputs are streamed, so kernel-sized diffs and gigabyte logs are fine — a
 
 ## Installation
 
-Requires Swift 6.2+ and macOS 14+.
+Prebuilt arm64 binaries ship with each
+[release](https://github.com/marosoaie/git-diff-parser/releases), with SHA-256
+checksums attached. They are not yet notarized, so fetch them with `curl`/`gh
+release download` (browser downloads get quarantined by Gatekeeper).
+
+Or build from source (Swift 6.2+, macOS 14+):
 
 ```sh
 swift build -c release
