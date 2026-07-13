@@ -64,3 +64,32 @@ jobs:
             --title "v$VERSION" \
             --generate-notes \
             dist/*.zip dist/*.sha256
+
+      # Pins Formula/git-diff-parser.rb in marosoaie/homebrew-tap to this
+      # release. Requires the TAP_DEPLOY_KEY secret (a write deploy key on
+      # the tap repo); skips quietly when it is not configured.
+      - name: Bump Homebrew formula
+        env:
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          if [ -z "$TAP_DEPLOY_KEY" ]; then
+            echo "TAP_DEPLOY_KEY secret not set; skipping formula bump"
+            exit 0
+          fi
+          umask 077
+          printf '%s\n' "$TAP_DEPLOY_KEY" > /tmp/tap_deploy_key
+          export GIT_SSH_COMMAND="ssh -i /tmp/tap_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --depth 1 git@github.com:marosoaie/homebrew-tap.git /tmp/tap
+          cd /tmp/tap
+          sed -E -i '' \
+            -e 's|(tag:[[:space:]]*)"v[^"]*"|\1"v'"$VERSION"'"|' \
+            -e 's|(revision:[[:space:]]*)"[0-9a-f]*"|\1"'"$GITHUB_SHA"'"|' \
+            Formula/git-diff-parser.rb
+          if git diff --quiet; then
+            echo "formula already at v$VERSION"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -qam "git-diff-parser $VERSION"
+          git push -q
