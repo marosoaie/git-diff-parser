@@ -1,0 +1,53 @@
+# SwiftLint configuration. The style rationale lives in AGENTS.md; this file
+# encodes the mechanically checkable parts. PR CI surfaces violations only on
+# changed lines (see .github/workflows/pr.yml).
+
+included:
+  - Sources
+  - Tests
+
+opt_in_rules:
+  # Functional style (AGENTS.md: combinators over loops).
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - empty_count
+  - empty_string
+  - first_where
+  - last_where
+  - flatmap_over_map_reduce
+  - reduce_into
+  - sorted_first_last
+  # Safety (AGENTS.md: never trap on untrusted input).
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  # General hygiene.
+  - array_init
+  - closure_spacing
+  - explicit_init
+  - joined_default_parameter
+  - modifier_order
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - yoda_condition
+
+disabled_rules:
+  # Multiline literals in this codebase consistently use trailing commas.
+  - trailing_comma
+  # Lossy String(decoding:as:) is deliberate (AGENTS.md: never trap or fail
+  # on hostile input); the failable initializer this rule prefers would
+  # reintroduce optionals for input we must accept byte-for-byte.
+  - optional_data_string_conversion
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+
+identifier_name:
+  # lo/hi/i are idiomatic in the byte-level scanning and binary-search code;
+  # keep the rule for casing but drop the length floor.
+  min_length:
+    warning: 1

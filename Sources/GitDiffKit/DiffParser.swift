@@ -181,7 +181,11 @@ public struct DiffParser: ByteLineConsumer, Sendable {
     /// Undoes C-style quoting git applies to paths containing special
     /// characters (spaces are not quoted, but e.g. UTF-8 and control
     /// characters are): `"a\303\244.swift"` → `aä.swift`.
-    static func unquote(_ quoted: String) -> String {
+    ///
+    /// Deliberately a single branchy state machine (complexity above the
+    /// lint threshold): splitting the escape table across helpers would
+    /// obscure it.
+    static func unquote(_ quoted: String) -> String { // swiftlint:disable:this cyclomatic_complexity
         guard quoted.hasPrefix("\""), quoted.hasSuffix("\""), quoted.count >= 2 else {
             return quoted
         }

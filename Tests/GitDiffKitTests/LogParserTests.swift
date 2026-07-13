@@ -70,9 +70,18 @@ struct DiagnosticMatcherTests {
     @Test("absolute log paths match repo-relative diff paths by suffix")
     func suffixMatching() {
         let diagnostics = [
-            Diagnostic(path: "/ci/checkout/Sources/App/Foo.swift", line: 11, severity: .warning, message: "on changed line"),
-            Diagnostic(path: "/ci/checkout/Sources/App/Foo.swift", line: 99, severity: .warning, message: "elsewhere"),
-            Diagnostic(path: "/ci/checkout/Sources/App/Other.swift", line: 11, severity: .warning, message: "untouched file"),
+            Diagnostic(
+                path: "/ci/checkout/Sources/App/Foo.swift", line: 11,
+                severity: .warning, message: "on changed line"
+            ),
+            Diagnostic(
+                path: "/ci/checkout/Sources/App/Foo.swift", line: 99,
+                severity: .warning, message: "elsewhere"
+            ),
+            Diagnostic(
+                path: "/ci/checkout/Sources/App/Other.swift", line: 11,
+                severity: .warning, message: "untouched file"
+            ),
         ]
         let matched = DiagnosticMatcher.match(diagnostics, against: changes)
         #expect(matched.map(\.message) == ["on changed line"])

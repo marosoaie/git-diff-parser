@@ -14,19 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Deep enough to reach the merge base for the three-dot diff.
-          fetch-depth: 0
-          # Real payloads for the LFS test fixtures (tests would fall back
-          # to downloading them otherwise).
-          lfs: true
+          fetch-depth: 0   # reach the merge base
+          lfs: true        # real payloads for the LFS test fixtures
 
       - name: Select newest Xcode (Swift 6.2+ required)
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
           swift --version
 
-      # The diff and the build must come from the same tree: this checkout
-      # is the PR merge commit, so diff it against the base with '...'.
+      # Same tree for diff and build, so line numbers can't drift.
       - name: Diff against base
         run: |
           git fetch origin "${{ github.base_ref }}"
@@ -39,8 +35,6 @@ jobs:
             ~/Library/Caches/git-diff-parser-tests
           key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.resolved') }}
 
-      # Compile everything (tool + tests) once, keeping the raw compiler
-      # output: it is the input for the warning gate below.
       - name: Build (capture compiler diagnostics)
         run: |
           set -o pipefail
@@ -49,14 +43,27 @@ jobs:
       - name: Run tests
         run: swift test --skip-build
 
-      # Dogfood: annotate any diagnostic that lands on a PR-touched line and
-      # fail the job if the PR introduces warnings or errors there. Runs even
-      # when tests fail so the annotations are never swallowed.
-      - name: Fail on new warnings in changed lines
+      - name: SwiftLint
         if: ${{ !cancelled() }}
         run: |
+          set -o pipefail
+          which swiftlint || brew install swiftlint
+          swiftlint lint --quiet | tee /tmp/swiftlint.log
+
+      # Annotate diagnostics on PR-touched lines; fail on new warnings there.
+      - name: Fail on new warnings in changed lines
+        if: always()
+        run: |
+          touch /tmp/build.log /tmp/swiftlint.log
+          status=0
           .build/debug/git-diff-parser filter /tmp/build.log \
             --diff /tmp/pr.diff \
             --tool xcodebuild \
             --format github \
-            --fail-on warning
+            --fail-on warning || status=1
+          .build/debug/git-diff-parser filter /tmp/swiftlint.log \
+            --diff /tmp/pr.diff \
+            --tool swiftlint \
+            --format github \
+            --fail-on warning || status=1
+          exit $status

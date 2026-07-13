@@ -91,7 +91,7 @@ enum RealWorldFixtureStore {
 
     private static func looksLikeDiff(_ head: Data?) -> Bool {
         guard let head, !head.isEmpty else { return false }
-        return head.range(of: Data("diff --git".utf8)) != nil
+        return head.contains(Data("diff --git".utf8))
     }
 
     /// Refuses to cache a payload that is not actually a diff (error pages,
