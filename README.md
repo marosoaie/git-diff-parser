@@ -17,6 +17,15 @@ Inputs are streamed, so kernel-sized diffs and gigabyte logs are fine — a
 
 ## Installation
 
+Via [Homebrew](https://github.com/marosoaie/homebrew-tap) — the tap and this
+repo are private, so `brew` piggybacks on your git credentials; any machine
+that can clone the repo can install:
+
+```sh
+brew tap marosoaie/tap
+brew install --HEAD marosoaie/tap/git-diff-parser   # --HEAD until v1.0.0 ships
+```
+
 Prebuilt arm64 binaries ship with each
 [release](https://github.com/marosoaie/git-diff-parser/releases), with SHA-256
 checksums attached. They are not yet notarized, so fetch them with `curl`/`gh
