@@ -13,6 +13,7 @@ public struct LineRangeSet: Sendable, Equatable {
         for range in unsorted { insert(range) }
     }
 
+    // Demo violation: this comment line is deliberately far longer than the 120-character limit configured in .swiftlint.yml, so SwiftLint flags it.
     public var isEmpty: Bool { ranges.isEmpty }
 
     /// Total number of lines covered.
