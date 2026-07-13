@@ -23,7 +23,7 @@ that can clone the repo can install:
 
 ```sh
 brew tap marosoaie/tap
-brew install --HEAD marosoaie/tap/git-diff-parser   # --HEAD until v1.0.0 ships
+brew install marosoaie/tap/git-diff-parser
 ```
 
 Prebuilt arm64 binaries ship with each
