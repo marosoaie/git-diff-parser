@@ -155,14 +155,17 @@ struct DiffParserTests {
     func emptyContextLine() {
         // Some pipelines strip the single space marker from blank context
         // lines; the parser must treat the empty line as context.
-        let diff = "diff --git a/f.txt b/f.txt\n"
-            + "--- a/f.txt\n"
-            + "+++ b/f.txt\n"
-            + "@@ -1,3 +1,4 @@\n"
-            + " a\n"
-            + "\n"
-            + "+added\n"
-            + " b\n"
+        let diff = """
+            diff --git a/f.txt b/f.txt
+            --- a/f.txt
+            +++ b/f.txt
+            @@ -1,3 +1,4 @@
+             a
+
+            +added
+             b
+
+            """
         #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [3]])
     }
 
@@ -190,6 +193,52 @@ struct DiffParserTests {
         +y
         """#
         #expect(ChangedLines(diff: diff).lineSets == ["Sources/Foo.swift": [2]])
+    }
+
+    @Test("git's full C-style escape set is decoded in quoted paths")
+    func controlCharacterEscapes() {
+        let expected = String(decoding: [0x07, 0x08, 0x0B, 0x0C], as: UTF8.self) + ".txt"
+        #expect(DiffParser.unquote(#""\a\b\v\f.txt""#) == expected)
+    }
+
+    @Test("mnemonic destination prefixes are stripped like the default b/")
+    func mnemonicPrefixes() {
+        #expect(DiffParser.parseFileHeaderPath("w/Sources/Foo.swift") == "Sources/Foo.swift")
+        #expect(DiffParser.parseFileHeaderPath("i/x") == "x")
+        #expect(DiffParser.parseFileHeaderPath("c/x", pairedWith: .letter("i")) == "x")
+        #expect(DiffParser.parseFileHeaderPath("o/x", pairedWith: .devNull) == "x")
+        // Only single-letter prefix components qualify.
+        #expect(DiffParser.parseFileHeaderPath("workspace/file") == "workspace/file")
+    }
+
+    @Test("git diff -R's swapped a/ prefix is stripped on the new side")
+    func reversedDiffPrefix() {
+        let diff = """
+            diff --git b/f.txt a/f.txt
+            --- b/f.txt
+            +++ a/f.txt
+            @@ -1 +1,2 @@
+             x
+            +y
+
+            """
+        #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [2]])
+    }
+
+    @Test("--no-prefix paths in real single-letter directories are kept intact")
+    func noPrefixSingleLetterDirectory() {
+        // Real git prefix pairs always differ; the same letter on both
+        // header sides is a genuine directory, not a prefix.
+        let diff = """
+            diff --git c/w/f1.txt c/w/f1.txt
+            --- c/w/f1.txt
+            +++ c/w/f1.txt
+            @@ -1 +1,2 @@
+             x
+            +y
+
+            """
+        #expect(ChangedLines(diff: diff).lineSets == ["c/w/f1.txt": [2]])
     }
 
     @Test("hunk header with omitted counts defaults to 1")

@@ -20,7 +20,7 @@ public struct ClangStyleLogParser: LogParsing, ByteLineConsumer {
     package var partialLine: [UInt8] = []
 
     private var diagnostics: [Diagnostic] = []
-    private var seen = Set<String>()
+    private var seen = Set<Diagnostic>()
 
     /// Tool-specific post-processing (rule extraction, message cleanup)
     /// applied to each raw diagnostic before deduplication.
@@ -85,9 +85,9 @@ public struct ClangStyleLogParser: LogParsing, ByteLineConsumer {
             diagnostic = refine(diagnostic)
         }
 
-        let key = "\(diagnostic.path):\(diagnostic.line):\(diagnostic.column ?? 0):"
-            + "\(diagnostic.severity.rawValue):\(diagnostic.message)"
-        if seen.insert(key).inserted {
+        // Dedup on the complete value: rule and nil-vs-zero column must
+        // distinguish diagnostics.
+        if seen.insert(diagnostic).inserted {
             diagnostics.append(diagnostic)
         }
     }

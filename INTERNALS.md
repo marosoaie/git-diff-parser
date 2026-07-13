@@ -28,6 +28,14 @@ One Foundation trap worth knowing: `FileHandle.read` returns autoreleased
 it the chunks accumulate until process exit and streaming silently degrades
 to whole-file memory.
 
+Two bounds qualify the "constant memory" claim. Individual lines are
+processed truncated to 1 MiB (uniformly, so results stay
+chunking-independent) — this caps the carry buffer a pathological
+newline-free input could otherwise grow without limit. And `filter` holds
+every *parsed diagnostic* in memory before matching: its footprint scales
+with the number of diagnostics in the log, not the log's size. A
+callback-based delivery API could lift that if it ever matters in practice.
+
 ## Performance
 
 Measured on real-world input (Apple Silicon, release build) — the Linux

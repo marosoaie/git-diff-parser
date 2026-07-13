@@ -16,6 +16,12 @@ package protocol ByteLineConsumer {
 }
 
 extension ByteLineConsumer {
+    /// Lines are processed truncated to this many bytes, so one unterminated
+    /// or absurd line cannot grow the carry buffer without bound. The cap is
+    /// applied to whole and split lines alike, keeping results
+    /// chunking-independent.
+    package static var maxLineBytes: Int { 1 << 20 }
+
     package mutating func consumeChunk(_ chunk: ArraySlice<UInt8>) {
         let newline = UInt8(ascii: "\n")
         var start = chunk.startIndex
@@ -23,7 +29,7 @@ extension ByteLineConsumer {
             if partialLine.isEmpty {
                 processTrimmedLine(chunk[start..<terminator])
             } else {
-                partialLine.append(contentsOf: chunk[start..<terminator])
+                appendCapped(chunk[start..<terminator])
                 let line = partialLine
                 partialLine.removeAll(keepingCapacity: true)
                 processTrimmedLine(line[...])
@@ -31,7 +37,7 @@ extension ByteLineConsumer {
             start = chunk.index(after: terminator)
         }
         if start < chunk.endIndex {
-            partialLine.append(contentsOf: chunk[start...])
+            appendCapped(chunk[start...])
         }
     }
 
@@ -43,11 +49,18 @@ extension ByteLineConsumer {
         processTrimmedLine(line[...])
     }
 
+    private mutating func appendCapped(_ bytes: ArraySlice<UInt8>) {
+        let room = Self.maxLineBytes - partialLine.count
+        guard room > 0 else { return }
+        partialLine.append(contentsOf: bytes.prefix(room))
+    }
+
     private mutating func processTrimmedLine(_ line: ArraySlice<UInt8>) {
-        if line.last == UInt8(ascii: "\r") {
-            processLine(line.dropLast())
+        let capped = line.prefix(Self.maxLineBytes)
+        if capped.last == UInt8(ascii: "\r") {
+            processLine(capped.dropLast())
         } else {
-            processLine(line)
+            processLine(capped)
         }
     }
 }

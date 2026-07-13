@@ -98,10 +98,10 @@ enum RealWorldFixtureStore {
     /// truncated downloads), with a hint for manual remediation.
     private static func validate(_ diff: Data, from source: String) throws {
         guard looksLikeDiff(diff.prefix(4096)) else {
-            throw FixtureError(
-                "payload from \(source) does not look like a unified diff; "
-                + "if a corrupt file was cached, delete \(cacheDirectory.path) and re-run"
-            )
+            throw FixtureError("""
+                payload from \(source) does not look like a unified diff; \
+                if a corrupt file was cached, delete \(cacheDirectory.path) and re-run
+                """)
         }
     }
 
