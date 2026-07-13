@@ -94,7 +94,7 @@ per-line collections.
 
 **Comments explain why, not what** — constraints, traps, and justifications
 (e.g. why a loop stays imperative, why a pool per read iteration), never
-narration of the next line.
+narration of the next line. Keep them few and short.
 
 ## Testing
 
