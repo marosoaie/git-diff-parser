@@ -4,7 +4,7 @@ import GitDiffKit
 
 /// A diagnostic that landed on a line the PR touched, with its path resolved
 /// to the repo-relative form used by the diff (what code-review UIs expect).
-public struct MatchedDiagnostic: Sendable, Equatable, Codable {
+public struct MatchedDiagnostic: Sendable, Hashable, Codable {
     /// Repo-relative path, as spelled on the diff's new side.
     public var path: String
     public var line: Int

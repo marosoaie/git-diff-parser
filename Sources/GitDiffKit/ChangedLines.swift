@@ -15,9 +15,15 @@ public struct LineRangeSet: Sendable, Equatable {
 
     public var isEmpty: Bool { ranges.isEmpty }
 
-    /// Total number of lines covered.
+    /// Total number of lines covered, saturating at `Int.max` for ranges too
+    /// large to count.
     public var lineCount: Int {
-        ranges.reduce(0) { $0 + $1.count }
+        ranges.reduce(0) { total, range in
+            let span = range.upperBound.subtractingReportingOverflow(range.lowerBound)
+            guard !span.overflow, span.partialValue < Int.max else { return Int.max }
+            let sum = total.addingReportingOverflow(span.partialValue + 1)
+            return sum.overflow ? Int.max : sum.partialValue
+        }
     }
 
     /// Every covered line, ascending. Beware: materializes the full list —
@@ -36,8 +42,9 @@ public struct LineRangeSet: Sendable, Equatable {
             return
         }
         // Fast paths: diff parsing inserts in ascending order, so almost
-        // every insert lands at or just past the tail.
-        if range.lowerBound > last.upperBound + 1 {
+        // every insert lands at or just past the tail. `gapFollows` is the
+        // overflow-safe form of `lowerBound > upperBound + 1`.
+        if Self.gapFollows(last.upperBound, before: range.lowerBound) {
             ranges.append(range)
             return
         }
@@ -53,7 +60,7 @@ public struct LineRangeSet: Sendable, Equatable {
         var hi = ranges.count
         while lo < hi {
             let mid = (lo + hi) / 2
-            if ranges[mid].upperBound + 1 < range.lowerBound {
+            if Self.gapFollows(ranges[mid].upperBound, before: range.lowerBound) {
                 lo = mid + 1
             } else {
                 hi = mid
@@ -62,12 +69,18 @@ public struct LineRangeSet: Sendable, Equatable {
         var newLower = range.lowerBound
         var newUpper = range.upperBound
         var end = lo
-        while end < ranges.count, ranges[end].lowerBound <= newUpper + 1 {
+        while end < ranges.count, !Self.gapFollows(newUpper, before: ranges[end].lowerBound) {
             newLower = min(newLower, ranges[end].lowerBound)
             newUpper = max(newUpper, ranges[end].upperBound)
             end += 1
         }
         ranges.replaceSubrange(lo..<end, with: [newLower...newUpper])
+    }
+
+    /// Whether `next` starts strictly beyond `upperBound + 1`, without
+    /// overflowing when `upperBound` is `Int.max`.
+    private static func gapFollows(_ upperBound: Int, before next: Int) -> Bool {
+        upperBound < Int.max && next > upperBound + 1
     }
 
     /// Binary-search membership test. With a tolerance, matches any line
@@ -77,9 +90,10 @@ public struct LineRangeSet: Sendable, Equatable {
         let tolerance = max(0, tolerance)
         var lo = 0
         var hi = ranges.count
-        // Comparisons are written subtraction-first so that arbitrarily
-        // large tolerances cannot overflow (line numbers are non-negative).
-        let lowestAcceptableUpper = line - tolerance
+        // Overflow-checked bounds: saturate instead of trapping at the
+        // extremes of Int.
+        let low = line.subtractingReportingOverflow(tolerance)
+        let lowestAcceptableUpper = low.overflow ? Int.min : low.partialValue
         while lo < hi {
             let mid = (lo + hi) / 2
             if ranges[mid].upperBound < lowestAcceptableUpper {
@@ -89,7 +103,8 @@ public struct LineRangeSet: Sendable, Equatable {
             }
         }
         guard lo < ranges.count else { return false }
-        return ranges[lo].lowerBound - tolerance <= line
+        let bound = ranges[lo].lowerBound.subtractingReportingOverflow(tolerance)
+        return bound.overflow || bound.partialValue <= line
     }
 }
 

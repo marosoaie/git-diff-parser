@@ -49,6 +49,29 @@ struct LogParserTests {
         #expect(ClangStyleLogParser.diagnostics(in: log).count == 2)
     }
 
+    @Test("identical messages with different rules stay distinct")
+    func ruleAwareDeduplication() {
+        let log = """
+        /repo/A.swift:1:1: warning: Same message (rule_one)
+        /repo/A.swift:1:1: warning: Same message (rule_two)
+        """
+        var parser = SwiftLintLogParser()
+        parser.consume(log)
+        let diagnostics = parser.finalize()
+        #expect(diagnostics.count == 2)
+        #expect(diagnostics.map(\.rule) == ["rule_one", "rule_two"])
+        #expect(diagnostics.allSatisfy { $0.message == "Same message" })
+    }
+
+    @Test("a missing column and column zero are different diagnostics")
+    func nilColumnVersusZero() {
+        let log = """
+        /repo/A.swift:1: warning: m
+        /repo/A.swift:1:0: warning: m
+        """
+        #expect(ClangStyleLogParser.diagnostics(in: log).count == 2)
+    }
+
     @Test("paths containing spaces are kept intact")
     func pathsWithSpaces() {
         let log = "/repo/My App/View Models/Foo.swift:3:1: error: boom"

@@ -173,8 +173,11 @@ let kept = DiagnosticMatcher.match(
   longest suffix match aligned on `/` boundaries — so `FooBar.swift` never
   matches `Bar.swift`, and an ambiguous basename resolves to the most specific
   changed path.
-- Only exact-duplicate log lines are deduplicated; two different messages on
-  the same line are both kept.
+- Duplicate diagnostics are collapsed on their complete value — same
+  location but a different message or violated rule stays distinct.
+- Inputs stream in constant memory, with two caveats: single lines are
+  processed truncated to 1 MiB, and `filter`'s memory scales with the number
+  of diagnostics in the log (not the log's size).
 - `remark:` (clang) is treated as `note`; clang's `fatal error:` is an
   `error`.
 

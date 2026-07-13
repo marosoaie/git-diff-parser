@@ -62,6 +62,56 @@ struct MalformedInputTests {
         #expect(changes.contains(line: 1, in: "a", tolerance: Int.max))
     }
 
+    @Test("hunk starts near Int.max are rejected instead of trapping downstream")
+    func extremeHunkStart() {
+        // Fits in Int, so the checked digit parser alone would accept it;
+        // the line-number cap must reject it before newLine += 1 can trap.
+        let diff = "diff --git a/x b/x\n"
+            + "--- a/x\n"
+            + "+++ b/x\n"
+            + "@@ -1 +9223372036854775807 @@\n"
+            + "+x\n"
+        #expect(ChangedLines(diff: diff).isEmpty)
+        #expect(DiffParser.parseHunkHeader(ArraySlice("@@ -1 +\(DiffParser.maxLineNumber + 1),1 @@".utf8)) == nil)
+        // The largest accepted value must survive a full hunk without traps.
+        let boundary = "diff --git a/x b/x\n"
+            + "--- a/x\n"
+            + "+++ b/x\n"
+            + "@@ -1 +\(DiffParser.maxLineNumber) @@\n"
+            + "+x\n"
+        #expect(ChangedLines(diff: boundary).lineSets == ["x": [DiffParser.maxLineNumber]])
+    }
+
+    @Test("a deletion-only hunk cannot invent added lines")
+    func deletionOnlyHunkStrayPlus() {
+        let diff = "diff --git a/A b/A\n"
+            + "--- a/A\n"
+            + "+++ b/A\n"
+            + "@@ -1,2 +0,0 @@\n"
+            + "-x\n"
+            + "+y\n"    // malformed: the hunk declared zero new-side lines
+            + "-z\n"
+        #expect(ChangedLines(diff: diff).isEmpty)
+    }
+
+    @Test("a '+' beyond the declared new-side count re-parses as a header")
+    func malformedCountRecoversNextFile() {
+        let diff = "diff --git a/A b/A\n"
+            + "--- a/A\n"
+            + "+++ b/A\n"
+            + "@@ -3,3 +1,1 @@\n"
+            + "-x\n"
+            + "+y\n"                 // new side exhausted after this line
+            + "+++ b/B.swift\n"      // must be recognized, not miscounted
+            + "@@ -1 +1,2 @@\n"
+            + " x\n"
+            + "+z\n"
+        #expect(ChangedLines(diff: diff).lineSets == [
+            "A": [1],
+            "B.swift": [2],
+        ])
+    }
+
     @Test("clang 'fatal error:' diagnostics are recognized as errors")
     func fatalErrorSeverity() {
         let log = "/repo/t.c:1:10: fatal error: 'nope.h' file not found"

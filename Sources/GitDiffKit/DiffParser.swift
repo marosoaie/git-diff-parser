@@ -56,50 +56,33 @@ public struct DiffParser: ByteLineConsumer, Sendable {
     // MARK: Per-line parsing
 
     private static let fileHeaderPrefix = Array("+++ ".utf8)
+    private static let oldFileHeaderPrefix = Array("--- ".utf8)
     private static let diffLinePrefix = Array("diff ".utf8)
     private static let binaryPrefix = Array("Binary files ".utf8)
 
+    // Prefix class of the most recent "--- " header; disambiguates whether a
+    // single-letter prefix on the "+++ " side is git's or a real directory.
+    private var oldSideHeader: HeaderPathPrefix = .unknown
+
     package mutating func processLine(_ line: ArraySlice<UInt8>) {
         if remainingOld > 0 || remainingNew > 0 {
-            // A bare "diff " line can only appear mid-hunk when the hunk was
-            // truncated: well-formed content lines always carry a +/-/space
-            // marker. Recover here so a malformed file can't record phantom
-            // lines or swallow the next file's headers.
-            if line.starts(with: Self.diffLinePrefix) {
-                remainingOld = 0
-                remainingNew = 0
-                currentPath = nil
-                return
-            }
-            switch line.first {
-            case UInt8(ascii: "+"):
-                if let path = currentPath {
-                    changes.add(line: newLine, to: path)
-                }
-                newLine += 1
-                remainingNew -= 1
-            case UInt8(ascii: "-"):
-                remainingOld -= 1
-            case UInt8(ascii: "\\"):
-                // "\ No newline at end of file" — annotation, not content.
-                break
-            default:
-                // Context line. Diffs that passed through trailing-whitespace
-                // stripping may turn " " into "", so treat any other line
-                // inside a hunk as context.
-                newLine += 1
-                remainingOld -= 1
-                remainingNew -= 1
-            }
+            processHunkContentLine(line)
             return
         }
 
         if line.starts(with: Self.fileHeaderPrefix) {
             currentPath = Self.parseFileHeaderPath(
-                String(decoding: line.dropFirst(Self.fileHeaderPrefix.count), as: UTF8.self)
+                String(decoding: line.dropFirst(Self.fileHeaderPrefix.count), as: UTF8.self),
+                pairedWith: oldSideHeader
+            )
+            oldSideHeader = .unknown
+        } else if line.starts(with: Self.oldFileHeaderPrefix) {
+            oldSideHeader = Self.headerPrefixClass(
+                of: String(decoding: line.dropFirst(Self.oldFileHeaderPrefix.count), as: UTF8.self)
             )
         } else if line.starts(with: Self.diffLinePrefix) || line.starts(with: Self.binaryPrefix) {
             currentPath = nil
+            oldSideHeader = .unknown
         } else if let hunk = Self.parseHunkHeader(line) {
             newLine = hunk.newStart
             remainingOld = hunk.oldCount
@@ -107,26 +90,123 @@ public struct DiffParser: ByteLineConsumer, Sendable {
         }
     }
 
+    private mutating func processHunkContentLine(_ line: ArraySlice<UInt8>) {
+        // A bare "diff " line can only appear mid-hunk when the hunk was
+        // truncated: well-formed content lines always carry a +/-/space
+        // marker. Recover here so a malformed file can't record phantom
+        // lines or swallow the next file's headers.
+        if line.starts(with: Self.diffLinePrefix) {
+            remainingOld = 0
+            remainingNew = 0
+            currentPath = nil
+            return
+        }
+        // Each marker must have budget on its own side of the hunk, or a
+        // malformed hunk could invent lines the declared counts never
+        // promised (e.g. a "+" in a deletion-only hunk).
+        switch line.first {
+        case UInt8(ascii: "+"):
+            guard remainingNew > 0 else { return reprocessOutsideHunk(line) }
+            if let path = currentPath {
+                changes.add(line: newLine, to: path)
+            }
+            newLine += 1
+            remainingNew -= 1
+        case UInt8(ascii: "-"):
+            guard remainingOld > 0 else { return reprocessOutsideHunk(line) }
+            remainingOld -= 1
+        case UInt8(ascii: "\\"):
+            // "\ No newline at end of file" — annotation, not content.
+            break
+        default:
+            // Context line. Diffs that passed through trailing-whitespace
+            // stripping may turn " " into "", so treat any other line
+            // inside a hunk as context.
+            guard remainingOld > 0, remainingNew > 0 else { return reprocessOutsideHunk(line) }
+            newLine += 1
+            remainingOld -= 1
+            remainingNew -= 1
+        }
+    }
+
+    /// A line inconsistent with the declared hunk counts means the hunk is
+    /// malformed: abandon it and reinterpret the line as header material, so
+    /// a corrupted count can't swallow the next file header.
+    private mutating func reprocessOutsideHunk(_ line: ArraySlice<UInt8>) {
+        remainingOld = 0
+        remainingNew = 0
+        processLine(line)
+    }
+
     // MARK: Header parsing helpers
+
+    /// Prefix class of a `--- ` or `+++ ` header payload.
+    enum HeaderPathPrefix: Equatable {
+        /// No paired header seen (raw fragments, direct API use).
+        case unknown
+        /// The old side was `/dev/null` (file creation).
+        case devNull
+        /// A path with no single-letter prefix component.
+        case bare
+        /// A path starting `<letter>/` with a letter git uses as a prefix.
+        case letter(Character)
+    }
+
+    /// Letters git uses as diff prefixes: a/b by default (swapped by -R),
+    /// c/i/o/w under diff.mnemonicPrefix.
+    private static let prefixLetters: Set<Character> = ["a", "b", "c", "i", "o", "w"]
 
     /// Extracts the path from the payload of a `+++ ` header line.
     /// Returns nil for `/dev/null` (deleted file).
-    static func parseFileHeaderPath(_ payload: String) -> String? {
-        // Some diff producers append a tab plus metadata (e.g. a timestamp).
-        // Keep empty subsequences so a bare "+++ " header cannot crash the
-        // subscript; the empty result falls through to the nil return below.
-        var text = payload.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)[0]
+    ///
+    /// A single-letter git prefix is stripped only when the paired `--- `
+    /// header doesn't contradict it: real git prefix pairs always use two
+    /// different letters, so the same letter on both sides means a genuine
+    /// directory in `--no-prefix` output and is kept.
+    static func parseFileHeaderPath(
+        _ payload: String,
+        pairedWith oldSide: HeaderPathPrefix = .unknown
+    ) -> String? {
+        let text = Self.normalizedHeaderPath(payload)
+        if text == "/dev/null" { return nil }
+        if let letter = Self.prefixLetter(of: text), Self.stripsPrefix(letter, pairedWith: oldSide) {
+            let stripped = text.dropFirst(2)
+            return stripped.isEmpty ? nil : String(stripped)
+        }
+        return text.isEmpty ? nil : String(text)
+    }
 
+    static func headerPrefixClass(of payload: String) -> HeaderPathPrefix {
+        let text = Self.normalizedHeaderPath(payload)
+        if text == "/dev/null" { return .devNull }
+        if let letter = Self.prefixLetter(of: text) { return .letter(letter) }
+        return .bare
+    }
+
+    /// Strips a tab-appended trailer (e.g. a timestamp) and undoes quoting.
+    private static func normalizedHeaderPath(_ payload: String) -> Substring {
+        // Keep empty subsequences so a bare header cannot crash the
+        // subscript; the empty result falls through to the nil returns above.
+        var text = payload.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)[0]
         if text.hasPrefix("\"") {
             text = Substring(unquote(String(text)))
         }
-        if text == "/dev/null" { return nil }
-        // git prefixes the new side with "b/" (or the value of diff.dstPrefix);
-        // `git diff --no-prefix` produces bare paths, which we keep as-is.
-        if text.hasPrefix("b/") {
-            text = text.dropFirst(2)
+        return text
+    }
+
+    private static func prefixLetter(of text: Substring) -> Character? {
+        guard let first = text.first, prefixLetters.contains(first),
+              text.dropFirst().first == "/"
+        else { return nil }
+        return first
+    }
+
+    private static func stripsPrefix(_ letter: Character, pairedWith oldSide: HeaderPathPrefix) -> Bool {
+        switch oldSide {
+        case .unknown, .devNull: true
+        case .bare: false
+        case .letter(let oldLetter): oldLetter != letter
         }
-        return text.isEmpty ? nil : String(text)
     }
 
     struct HunkHeader {
@@ -134,6 +214,10 @@ public struct DiffParser: ByteLineConsumer, Sendable {
         var oldCount: Int
         var newCount: Int
     }
+
+    /// Upper bound for hunk starts and counts (~2.8e14). Real files are many
+    /// orders of magnitude smaller; anything larger is corrupt input.
+    static let maxLineNumber = 1 << 48
 
     /// Parses `@@ -oldStart[,oldCount] +newStart[,newCount] @@ ...`.
     static func parseHunkHeader(_ line: ArraySlice<UInt8>) -> HunkHeader? {
@@ -162,7 +246,10 @@ public struct DiffParser: ByteLineConsumer, Sendable {
                 sawDigit = true
                 index += 1
             }
-            return sawDigit ? value : nil
+            // Cap well below Int.max so downstream line arithmetic
+            // (newLine += 1, range merging) can never overflow.
+            guard sawDigit, value <= Self.maxLineNumber else { return nil }
+            return value
         }
 
         func parseOptionalCount() -> Int? {
@@ -205,9 +292,13 @@ public struct DiffParser: ByteLineConsumer, Sendable {
             }
             guard let escaped = next() else { break }
             switch escaped {
+            case UInt8(ascii: "a"): bytes.append(0x07)
+            case UInt8(ascii: "b"): bytes.append(0x08)
+            case UInt8(ascii: "f"): bytes.append(0x0C)
             case UInt8(ascii: "n"): bytes.append(0x0A)
-            case UInt8(ascii: "t"): bytes.append(0x09)
             case UInt8(ascii: "r"): bytes.append(0x0D)
+            case UInt8(ascii: "t"): bytes.append(0x09)
+            case UInt8(ascii: "v"): bytes.append(0x0B)
             case UInt8(ascii: "\""): bytes.append(UInt8(ascii: "\""))
             case UInt8(ascii: "\\"): bytes.append(UInt8(ascii: "\\"))
             case UInt8(ascii: "0")...UInt8(ascii: "7"):

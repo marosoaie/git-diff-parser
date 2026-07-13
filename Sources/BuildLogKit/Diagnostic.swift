@@ -1,5 +1,5 @@
 /// A single compiler/linter diagnostic extracted from a build or lint log.
-public struct Diagnostic: Sendable, Equatable, Codable {
+public struct Diagnostic: Sendable, Hashable, Codable {
     public enum Severity: String, Sendable, Codable, CaseIterable, Comparable {
         case note
         case warning
