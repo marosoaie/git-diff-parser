@@ -11,7 +11,6 @@ enum RealWorldFixture: String, CaseIterable, Sendable {
     /// includes renames.
     case redis = "redis-7.0.0-to-7.2.0"
     /// GitHub's compare diff for swift-argument-parser 1.0.0 → 1.5.0.
-    /// Never bundled, so this fixture always exercises the download path.
     case swiftArgumentParser = "swift-argument-parser-1.0.0-to-1.5.0"
 
     var remoteURL: URL {
@@ -28,15 +27,6 @@ enum RealWorldFixture: String, CaseIterable, Sendable {
     var remoteIsXZCompressed: Bool {
         self == .linuxKernel
     }
-
-    /// Base name of the xz-compressed copy committed to the repo via
-    /// Git LFS, or nil for fixtures that are always downloaded.
-    var bundledResourceName: String? {
-        switch self {
-        case .linuxKernel, .redis: rawValue + ".diff"
-        case .swiftArgumentParser: nil
-        }
-    }
 }
 
 struct FixtureError: Error, CustomStringConvertible {
@@ -44,9 +34,8 @@ struct FixtureError: Error, CustomStringConvertible {
     init(_ description: String) { self.description = description }
 }
 
-/// Materializes fixtures as uncompressed diff files on disk, preferring
-/// (in order) the Git LFS copy bundled with the test target, a previously
-/// cached download, and finally the canonical remote URL.
+/// Materializes fixtures as uncompressed diff files on disk from a cached
+/// download, fetching from the canonical remote URL on a cache miss.
 enum RealWorldFixtureStore {
     static let cacheDirectory = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -65,28 +54,11 @@ enum RealWorldFixtureStore {
         }
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
-        // When the repo was cloned without `git lfs`, the bundled file is a
-        // small text pointer rather than the actual payload; fall through to
-        // the download path in that case.
-        if let name = fixture.bundledResourceName,
-           let bundled = Bundle.module.url(forResource: name, withExtension: "xz", subdirectory: "Fixtures"),
-           let data = try? Data(contentsOf: bundled),
-           !isGitLFSPointer(data) {
-            let diff = try decompressXZ(data)
-            try validate(diff, from: bundled.lastPathComponent)
-            try diff.write(to: cached, options: .atomic)
-            return cached
-        }
-
         let raw = try await download(fixture.remoteURL)
         let diff = fixture.remoteIsXZCompressed ? try decompressXZ(raw) : raw
         try validate(diff, from: fixture.remoteURL.absoluteString)
         try diff.write(to: cached, options: .atomic)
         return cached
-    }
-
-    private static func isGitLFSPointer(_ data: Data) -> Bool {
-        data.count < 1024 && data.starts(with: Array("version https://git-lfs".utf8))
     }
 
     private static func looksLikeDiff(_ head: Data?) -> Bool {

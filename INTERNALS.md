@@ -66,13 +66,12 @@ re-benchmarked on these fixtures before merging (see AGENTS.md).
   patch (~70 MB), GitHub's redis 7.0→7.2 compare diff (renames), and
   swift-argument-parser's 1.0→1.5 compare diff, then cross-check every
   per-file changed-line count against git's own patch parser
-  (`git apply --numstat`) as an independent oracle. The kernel and redis
-  diffs are committed as xz-compressed **Git LFS** fixtures; the
-  swift-argument-parser diff is always downloaded, so the network path stays
-  exercised. Downloads are cached in
-  `~/Library/Caches/git-diff-parser-tests/`, cache entries are re-validated
-  before use, and a clone without `git lfs` falls back to downloading
-  automatically.
+  (`git apply --numstat`) as an independent oracle. Fixtures are downloaded
+  from their canonical URLs and cached in
+  `~/Library/Caches/git-diff-parser-tests/`; cache entries are re-validated
+  before use. Nothing large is committed to the repo — keeping the clone
+  free of Git LFS matters because Homebrew and SwiftPM consumers clone it
+  on machines that may have broken or absent `git-lfs` setups.
 
 Set `GIT_DIFF_PARSER_SKIP_NETWORK_TESTS=1` to skip the real-world suite
 (e.g. in offline environments). Tests pass under both `swift test` and
