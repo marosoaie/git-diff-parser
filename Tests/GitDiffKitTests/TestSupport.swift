@@ -8,14 +8,30 @@ extension ChangedLines {
     }
 }
 
-/// Runs the git-diff-parser executable that `swift test` builds next to the
-/// test bundle.
+/// Runs the git-diff-parser executable that the test build produces into the
+/// build products directory.
 enum CommandLineTool {
     static var url: URL? {
-        let url = Bundle.module.bundleURL
-            .deletingLastPathComponent()
-            .appendingPathComponent("git-diff-parser")
-        return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
+        // The products directory looks different per test runner, so try two
+        // anchors:
+        // - `swift test`: Bundle.module sits directly in the products
+        //   directory (the .xctest is never registered as a bundle there —
+        //   the Swift Testing host is a runner binary in the toolchain).
+        // - Xcode / xcodebuild: Bundle.module resolves to a copy embedded in
+        //   GitDiffKitTests.xctest/Contents/Resources with no executables
+        //   nearby, but the loaded .xctest bundle itself sits in the
+        //   products directory.
+        var candidates = [Bundle.module.bundleURL.deletingLastPathComponent()]
+        candidates += Bundle.allBundles
+            .filter { $0.bundleURL.pathExtension == "xctest" }
+            .map { $0.bundleURL.deletingLastPathComponent() }
+        for directory in candidates {
+            let url = directory.appendingPathComponent("git-diff-parser")
+            if FileManager.default.isExecutableFile(atPath: url.path) {
+                return url
+            }
+        }
+        return nil
     }
 
     static func run(arguments: [String]) throws -> Data {
