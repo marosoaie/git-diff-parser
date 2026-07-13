@@ -19,7 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          lfs: true   # real payloads for the LFS test fixtures
 
       - name: Select newest Xcode (Swift 6.2+ required)
         run: |

@@ -40,7 +40,7 @@ fails on violations on PR-touched lines. When a rule fights a deliberate
 design decision, disable it in config or inline — always with a comment
 saying why.
 
-Real-world test fixtures resolve from Git LFS files, then
+Real-world test fixtures resolve from
 `~/Library/Caches/git-diff-parser-tests/`, then the network.
 
 ## Coding style
@@ -122,8 +122,10 @@ narration of the next line. Keep them few and short.
 
 - Commit subjects in imperative mood; bodies explain the why and any
   verification performed.
-- Large binary fixtures go through Git LFS (`*.xz` is tracked); anything
-  over ~1 MB that isn't LFS needs a good reason.
+- Never commit large binaries, and no Git LFS: brew and SwiftPM consumers
+  clone this repo, and LFS breaks checkouts on machines with missing or
+  misconfigured `git-lfs`. Big test fixtures are downloaded and cached at
+  test time instead.
 - Releases: bump `CommandConfiguration.version` via PR, then run the
   "Release" workflow (Actions tab) with the matching semver number and
   branch. It tests, packages the arm64 binary, tags `vX.Y.Z`, publishes a

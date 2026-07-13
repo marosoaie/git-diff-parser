@@ -4,11 +4,9 @@ import Testing
 
 /// Validates the parser against large, real diffs from notorious projects.
 ///
-/// Fixtures resolve from the Git LFS files bundled with the repo when
-/// available, then from a local cache, and finally by downloading from
-/// kernel.org / github.com (the swift-argument-parser fixture is never
-/// bundled, so the download path is always exercised). Set
-/// `GIT_DIFF_PARSER_SKIP_NETWORK_TESTS` to skip the whole suite.
+/// Fixtures resolve from a local cache, downloading from kernel.org /
+/// github.com on a miss. Set `GIT_DIFF_PARSER_SKIP_NETWORK_TESTS` to skip
+/// the whole suite.
 @Suite(
     "Real-world large diffs",
     .serialized,

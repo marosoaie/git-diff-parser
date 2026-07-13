@@ -15,7 +15,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # reach the merge base
-          lfs: true        # real payloads for the LFS test fixtures
 
       - name: Select newest Xcode (Swift 6.2+ required)
         run: |
