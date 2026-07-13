@@ -42,6 +42,8 @@ struct ToolLogParserTests {
 
     @Test("SwiftLintLogParser extracts the trailing rule identifier")
     func swiftLintParser() {
+        // Verbatim SwiftLint output; the fixture lines stay un-wrapped.
+        // swiftlint:disable line_length
         let log = """
         Linting Swift files in current working directory
         Linting 'Foo.swift' (1/2)
@@ -49,6 +51,7 @@ struct ToolLogParserTests {
         /repo/Sources/App/Foo.swift:20:1: error: Force Cast Violation: Force casts should be avoided (force_cast)
         Done linting! Found 2 violations, 1 serious in 2 files.
         """
+        // swiftlint:enable line_length
         #expect(SwiftLintLogParser.diagnostics(in: log) == [
             Diagnostic(
                 path: "/repo/Sources/App/Foo.swift", line: 10, column: 5,

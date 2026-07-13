@@ -50,10 +50,16 @@ struct Filter: ParsableCommand {
     @Option(help: "Path to the unified diff to filter against, or '-' for stdin.")
     var diff: String
 
-    @Option(help: "The tool that produced the log. Tool-specific parsers also extract the violated rule; generic handles any clang-style log.")
+    @Option(help: """
+        The tool that produced the log. Tool-specific parsers also extract \
+        the violated rule; generic handles any clang-style log.
+        """)
     var tool: Tool = .generic
 
-    @Option(help: "Output format: structured (json), GitHub workflow annotation commands (github), or clang-style lines (text).")
+    @Option(help: """
+        Output format: structured (json), GitHub workflow annotation \
+        commands (github), or clang-style lines (text).
+        """)
     var format: OutputFormat = .json
 
     @Option(help: "Prefix to strip from absolute log paths before matching.")
@@ -94,7 +100,10 @@ struct Filter: ParsableCommand {
             matched.forEach { diagnostic in
                 let column = diagnostic.column.map { ":\($0)" } ?? ""
                 let rule = diagnostic.rule.map { " (\($0))" } ?? ""
-                print("\(diagnostic.path):\(diagnostic.line)\(column): \(diagnostic.severity.rawValue): \(diagnostic.message)\(rule)")
+                print(
+                    "\(diagnostic.path):\(diagnostic.line)\(column): "
+                        + "\(diagnostic.severity.rawValue): \(diagnostic.message)\(rule)"
+                )
             }
         }
 

@@ -49,14 +49,30 @@ jobs:
       - name: Run tests
         run: swift test --skip-build
 
+      # Violations never fail this step directly — the gate below decides,
+      # scoped to PR-touched lines.
+      - name: SwiftLint (capture log)
+        if: ${{ !cancelled() }}
+        run: |
+          which swiftlint || brew install swiftlint
+          swiftlint lint --quiet > /tmp/swiftlint.log || true
+
       # Dogfood: annotate any diagnostic that lands on a PR-touched line and
       # fail the job if the PR introduces warnings or errors there. Runs even
-      # when tests fail so the annotations are never swallowed.
+      # when tests fail so the annotations are never swallowed, and both
+      # filters always run so neither tool's annotations mask the other's.
       - name: Fail on new warnings in changed lines
         if: ${{ !cancelled() }}
         run: |
+          status=0
           .build/debug/git-diff-parser filter /tmp/build.log \
             --diff /tmp/pr.diff \
             --tool xcodebuild \
             --format github \
-            --fail-on warning
+            --fail-on warning || status=1
+          .build/debug/git-diff-parser filter /tmp/swiftlint.log \
+            --diff /tmp/pr.diff \
+            --tool swiftlint \
+            --format github \
+            --fail-on warning || status=1
+          exit $status

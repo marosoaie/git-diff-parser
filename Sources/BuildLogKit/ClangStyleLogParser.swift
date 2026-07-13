@@ -31,6 +31,8 @@ public struct ClangStyleLogParser: LogParsing, ByteLineConsumer {
     // containing spaces work. `remark:` is emitted by some clang passes and
     // mapped to `note`; `fatal error:` is clang's missing-include severity.
     private let diagnosticRegex =
+        // Regex literals cannot wrap across lines.
+        // swiftlint:disable:next line_length
         /^(?<path>[^:\n][^\n]*?):(?<line>\d+)(?::(?<column>\d+))?:\s*(?<severity>fatal error|error|warning|note|remark):\s*(?<message>.*)$/
 
     private static let severityMarkers: [[UInt8]] = [
@@ -83,7 +85,8 @@ public struct ClangStyleLogParser: LogParsing, ByteLineConsumer {
             diagnostic = refine(diagnostic)
         }
 
-        let key = "\(diagnostic.path):\(diagnostic.line):\(diagnostic.column ?? 0):\(diagnostic.severity.rawValue):\(diagnostic.message)"
+        let key = "\(diagnostic.path):\(diagnostic.line):\(diagnostic.column ?? 0):"
+            + "\(diagnostic.severity.rawValue):\(diagnostic.message)"
         if seen.insert(key).inserted {
             diagnostics.append(diagnostic)
         }

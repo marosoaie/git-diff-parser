@@ -29,7 +29,16 @@ swift test                        # full suite (~20 s warm)
 GIT_DIFF_PARSER_SKIP_NETWORK_TESTS=1 swift test   # offline subset
 xcodebuild test -scheme git-diff-parser-Package -destination platform=macOS
 swift build -c release            # for benchmarks — never benchmark debug builds
+swiftlint lint --quiet            # must print nothing
 ```
+
+SwiftLint's configuration (`.swiftlint.yml`, with a `Tests/.swiftlint.yml`
+override) encodes the mechanically checkable parts of the style below —
+functional-preference rules are opted in, force unwraps are allowed in tests
+only. Keep the whole tree violation-free; PR CI additionally annotates and
+fails on violations on PR-touched lines. When a rule fights a deliberate
+design decision, disable it in config or inline — always with a comment
+saying why.
 
 Real-world test fixtures resolve from Git LFS files, then
 `~/Library/Caches/git-diff-parser-tests/`, then the network.
