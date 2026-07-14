@@ -11,7 +11,7 @@ request touches. Four products, strict dependency direction:
 | Product | Depends on | Purpose |
 |---|---|---|
 | `GitDiffKit` | – | Unified git diffs → changed files + line ranges |
-| `BuildLogKit` | – | Build/lint logs → `[Diagnostic]` (xcodebuild, SwiftLint, SwiftFormat parsers) |
+| `BuildLogKit` | – | Build/lint logs → `[Diagnostic]` (xcodebuild, SwiftLint, SwiftFormat, SonarQube parsers) |
 | `DiffDiagnostics` | both above | The join: which diagnostics land on changed lines |
 | `git-diff-parser` (CLI) | all three | `changes` and `filter` subcommands |
 
