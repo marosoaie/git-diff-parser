@@ -80,7 +80,7 @@ log is ignored, so pipe the raw build output straight in:
 
 | Option | Meaning |
 |---|---|
-| `--tool <tool>` | Log dialect: `generic` (default, any clang-style log), `xcodebuild`, `swiftlint`, or `swiftformat`. Tool-specific parsers also extract the violated rule — SwiftLint rule identifier, SwiftFormat rule name, clang warning flag — into the `rule` field (and the GitHub annotation title) |
+| `--tool <tool>` | Log dialect: `generic` (default, any clang-style log), `xcodebuild`, `swiftlint`, `swiftformat`, or `sonar` (a SonarQube `/api/issues/search` JSON report). Tool-specific parsers also extract the violated rule — SwiftLint rule identifier, SwiftFormat rule name, clang warning flag, Sonar rule key — into the `rule` field (and the GitHub annotation title) |
 | `--format json` | Structured output for your own PR-comment bot (default) |
 | `--format github` | `::warning file=…,line=…::…` workflow commands — GitHub renders these as PR annotations automatically |
 | `--format text` | clang-style lines, for humans |
@@ -127,6 +127,23 @@ This repository dogfoods exactly that recipe: every PR runs
 suite, runs SwiftLint, and filters both logs against the PR diff — new
 warnings on changed lines annotate the PR and fail the job
 (`--fail-on warning`).
+
+**SonarQube.** The scanner doesn't print per-issue diagnostics, so after
+your pipeline uploads the analysis, fetch the open issues back from the
+server and filter them like any other input:
+
+```sh
+curl -sf -u "$SONAR_TOKEN:" \
+  "$SONAR_HOST/api/issues/search?componentKeys=$PROJECT_KEY&pullRequest=$PR_NUMBER&resolved=false&ps=500" \
+  > sonar.json
+git-diff-parser filter sonar.json --diff pr.diff --tool sonar --format github
+```
+
+(Drop `pullRequest=` when you only analyze branches.) Issue paths are
+relative to `sonar.projectBaseDir`; the usual suffix matching resolves them
+when that is the repo root. Past 500 issues the API pages (`&p=2`, …) —
+merge pages with `jq -s '[.[].issues[]]' page*.json`, a shape the parser
+also accepts.
 
 **Danger / custom bot.** Use `--format json` and post each entry as an inline
 comment via your API of choice; `file` is repo-relative and `line` is the

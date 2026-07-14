@@ -76,6 +76,50 @@ struct RealDiffTests {
         #expect(annotations.contains("::Line Length Violation: too long"))
     }
 
+    @Test("the command line tool filters a SonarQube report end to end")
+    func commandLineToolWithSonarReport() throws {
+        // --tool sonar reads an issues-search JSON report; the rule becomes
+        // the annotation title and severities map onto ours.
+        let fixtureURL = try #require(Bundle.module.url(
+            forResource: "swift-pr-70000", withExtension: "diff", subdirectory: "Fixtures"
+        ))
+        let sonarURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("git-diff-parser-fixture-sonar.json")
+        try Data("""
+        {
+          "issues": [
+            {
+              "rule": "swift:S1481",
+              "severity": "CRITICAL",
+              "component": "org:proj:include/swift/AST/Types.h",
+              "line": 4789,
+              "message": "on a changed line"
+            },
+            {
+              "rule": "swift:S1481",
+              "severity": "CRITICAL",
+              "component": "org:proj:include/swift/AST/Types.h",
+              "line": 10,
+              "message": "far from any change"
+            }
+          ]
+        }
+        """.utf8).write(to: sonarURL)
+        defer { try? FileManager.default.removeItem(at: sonarURL) }
+        let sonarAnnotations = String(decoding: try CommandLineTool.run(
+            arguments: [
+                "filter", sonarURL.path,
+                "--diff", fixtureURL.path,
+                "--tool", "sonar",
+                "--format", "github",
+            ]
+        ), as: UTF8.self)
+        #expect(sonarAnnotations.contains(
+            "::error file=include/swift/AST/Types.h,line=4789,title=swift%3AS1481::on a changed line"
+        ))
+        #expect(!sonarAnnotations.contains("far from any change"))
+    }
+
     @Test("real diff parses identically through any chunking")
     func chunkedRealDiff() throws {
         let fixture = try Self.loadFixture()

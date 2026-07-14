@@ -33,6 +33,7 @@ struct Filter: ParsableCommand {
         case xcodebuild
         case swiftlint
         case swiftformat
+        case sonar
 
         func makeParser() -> any LogParsing {
             switch self {
@@ -40,6 +41,7 @@ struct Filter: ParsableCommand {
             case .xcodebuild: XcodeLogParser()
             case .swiftlint: SwiftLintLogParser()
             case .swiftformat: SwiftFormatLogParser()
+            case .sonar: SonarReportParser()
             }
         }
     }
@@ -52,7 +54,8 @@ struct Filter: ParsableCommand {
 
     @Option(help: """
         The tool that produced the log. Tool-specific parsers also extract \
-        the violated rule; generic handles any clang-style log.
+        the violated rule; generic handles any clang-style log, and sonar \
+        reads a SonarQube /api/issues/search JSON report.
         """)
     var tool: Tool = .generic
 
