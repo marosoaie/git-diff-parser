@@ -88,13 +88,14 @@ multi-part string (fixtures, messages), use `"""` with `\`
 line-continuations and interpolation. Significant trailing whitespace inside
 a literal is spelled `\u{20}` so editors and linters can't eat it.
 
-**Comments only where names don't already say it.** Public symbols always
-get the doc comment described above. Non-public methods, types, and
-properties get one only when their names and parameter labels don't make
-the behavior clear. Any comment is to the point and explains why, not
-what — constraints, traps, and justifications (e.g. why a loop stays
-imperative, why a pool per read iteration), never narration of the next
-line.
+**Doc comments on public API; elsewhere only where names fall short.**
+Public symbols always get the doc comment described above. Non-public
+declarations (methods, types, properties, and the like) get a doc comment
+only when their names and, for methods, parameter labels don't make the
+behavior clear. Beyond the required public summary, keep every comment to
+the point and explain why, not what — constraints, traps, and
+justifications (e.g. why a loop stays imperative, why a pool per read
+iteration), never narration of the next line.
 
 ## Testing
 
