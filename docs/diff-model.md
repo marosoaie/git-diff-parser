@@ -208,8 +208,9 @@ public struct LineInfo: Sendable, Equatable {
   which file such a line "belongs" to, so it reports its position and
   the full model keeps it there.
 - **When a file ends**: `endFile` fires when the next file starts (a
-  `diff ` line, or a `--- `/`+++ ` pair outside a hunk, for plain `diff
-  -u`), at `finalize()`, and when a damaged file is abandoned. Every
+  `diff ` line; or, in plain `diff -u` output that has no `diff ` lines,
+  a `--- `/`+++ ` pair after the current file's hunks), at `finalize()`,
+  and when a damaged file is abandoned. Every
   `beginFile` gets its `endFile`, so collectors never track boundaries
   themselves.
 - **No heap allocation per hunk or line.** The hunk heading and the raw
