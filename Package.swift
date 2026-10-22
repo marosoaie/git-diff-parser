@@ -11,7 +11,6 @@ let swiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "git-diff-parser",
-    platforms: [.macOS(.v14)],
     products: [
         .library(name: "GitDiffKit", targets: ["GitDiffKit"]),
     ],

@@ -30,7 +30,8 @@ does a diff touch, and on which lines?
 .product(name: "GitDiffKit", package: "git-diff-parser"),
 ```
 
-Requires Swift 6.2+ and macOS 14+. Linux support is planned.
+Requires Swift 6.2+. Pure Swift with no Foundation import, so it builds on
+every Apple platform and on Linux; CI tests macOS and Ubuntu.
 
 ## Usage
 
@@ -40,7 +41,7 @@ import GitDiffKit
 // Whole diff in memory:
 let changes = ChangedLines(diff: diffText)
 
-// Or stream it — [UInt8], ArraySlice<UInt8>, Data, or String chunks:
+// Or stream it — [UInt8], ArraySlice<UInt8>, or String chunks:
 var parser = DiffParser()
 while let chunk = nextChunk() { parser.consume(chunk) }
 let streamed = parser.finalize()                         // == changes

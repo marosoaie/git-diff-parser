@@ -53,10 +53,19 @@ struct RealWorldDiffTests {
         var parser = DiffParser()
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
-        while let chunk = try autoreleasepool(invoking: { try handle.read(upToCount: 4 << 20) }),
-              !chunk.isEmpty {
-            parser.consume(chunk)
+        while let chunk = try readChunk(from: handle), !chunk.isEmpty {
+            parser.consume([UInt8](chunk))
         }
         return parser.finalize()
+    }
+
+    private static func readChunk(from handle: FileHandle) throws -> Data? {
+        #if canImport(Darwin)
+        // FileHandle.read returns autoreleased Data; without a pool per read
+        // every chunk lives until exit and the test reads the whole file.
+        try autoreleasepool { try handle.read(upToCount: 4 << 20) }
+        #else
+        try handle.read(upToCount: 4 << 20)
+        #endif
     }
 }

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import GitDiffKit
 
 /// Large diffs from notorious open-source projects, used to validate the
@@ -37,9 +40,35 @@ struct FixtureError: Error, CustomStringConvertible {
 /// Materializes fixtures as uncompressed diff files on disk from a cached
 /// download, fetching from the canonical remote URL on a cache miss.
 enum RealWorldFixtureStore {
-    static let cacheDirectory = FileManager.default
-        .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    static let cacheDirectory = platformCacheRoot
         .appendingPathComponent("git-diff-parser-tests", isDirectory: true)
+
+    private static var platformCacheRoot: URL {
+        #if canImport(Darwin)
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        #else
+        xdgCacheHome(
+            environment: ProcessInfo.processInfo.environment,
+            fallbackHome: FileManager.default.homeDirectoryForCurrentUser
+        )
+        #endif
+    }
+
+    /// `$XDG_CACHE_HOME`, or `$HOME/.cache` when it is unset, following the
+    /// XDG Base Directory spec, which says to ignore relative paths.
+    ///
+    /// `fallbackHome` stands in for a missing `HOME`. It isn't consulted
+    /// first because Foundation on Linux reads the passwd entry and ignores
+    /// `HOME`, unlike the shell's `~` that CI caches expand.
+    static func xdgCacheHome(environment: [String: String], fallbackHome: URL) -> URL {
+        func absoluteDirectory(_ variable: String) -> URL? {
+            environment[variable].flatMap { path in
+                path.hasPrefix("/") ? URL(fileURLWithPath: path, isDirectory: true) : nil
+            }
+        }
+        return absoluteDirectory("XDG_CACHE_HOME")
+            ?? (absoluteDirectory("HOME") ?? fallbackHome).appendingPathComponent(".cache", isDirectory: true)
+    }
 
     static func localDiffURL(for fixture: RealWorldFixture) async throws -> URL {
         let cached = cacheDirectory.appendingPathComponent(fixture.rawValue + ".diff")
@@ -78,7 +107,17 @@ enum RealWorldFixtureStore {
     }
 
     private static func decompressXZ(_ data: Data) throws -> Data {
+        #if canImport(Darwin)
         try (data as NSData).decompressed(using: .lzma) as Data
+        #else
+        // swift-corelibs-foundation has no Compression framework; use xz(1).
+        // In the temporary folder, so a killed run can't leave it in the cache.
+        let compressed = FileManager.default.temporaryDirectory
+            .appendingPathComponent("git-diff-parser-tests-\(UUID().uuidString).xz")
+        try data.write(to: compressed)
+        defer { try? FileManager.default.removeItem(at: compressed) }
+        return try Subprocess.output(of: ["xz", "--decompress", "--stdout", compressed.path])
+        #endif
     }
 
     private static func download(_ url: URL) async throws -> Data {
@@ -106,19 +145,15 @@ enum RealWorldFixtureStore {
 /// patch parser, `git apply --numstat`.
 enum GitNumstat {
     static func addedLineCounts(forDiffAt url: URL) throws -> [String: Int] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git", "apply", "--numstat", url.path]
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = Pipe()
-        try process.run()
-        // Drain before waiting, or a full pipe buffer deadlocks the child.
-        let output = try stdout.fileHandleForReading.readToEnd() ?? Data()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw FixtureError("git apply --numstat exited with \(process.terminationStatus)")
-        }
+        // Inside a work tree, git apply ignores every path outside the
+        // current subdirectory. Run next to the diff and stop git from
+        // discovering an enclosing repository, wherever the cache lives.
+        let directory = url.deletingLastPathComponent()
+        let output = try Subprocess.output(
+            of: ["git", "apply", "--numstat", url.path],
+            in: directory,
+            environment: ["GIT_CEILING_DIRECTORIES": directory.deletingLastPathComponent().path]
+        )
 
         var counts: [String: Int] = [:]
         for line in String(decoding: output, as: UTF8.self).split(separator: "\n") {

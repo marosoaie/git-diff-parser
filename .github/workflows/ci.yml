@@ -29,7 +29,7 @@ jobs:
           key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift') }}
 
       - name: Build
-        run: swift build --build-tests
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
 
       - name: Run tests
         run: swift test --skip-build
@@ -39,3 +39,39 @@ jobs:
         run: |
           which swiftlint || brew install swiftlint
           swiftlint lint --quiet --reporter github-actions-logging
+
+  linux-tests:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    timeout-minutes: 30
+    steps:
+      # Before checkout, so actions/checkout makes a real clone. The numstat
+      # oracle needs git, and the kernel fixture is .xz, which the image
+      # can't decompress without xz-utils.
+      - name: Install git and xz
+        run: |
+          if ! command -v git >/dev/null || ! command -v xz >/dev/null; then
+            apt-get update
+            apt-get install -y --no-install-recommends git xz-utils
+          fi
+          git --version
+          xz --version | head -1
+          swift --version
+
+      - uses: actions/checkout@v7
+
+      # The fixture cache falls back to $HOME/.cache, and actions/cache
+      # expands ~ from the same HOME inside the container. .build stays
+      # uncached: the swift:6.2 tag moves across patch releases, a key
+      # without the compiler would restore stale modules, and a build
+      # without dependencies takes seconds.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/git-diff-parser-tests
+          key: fixtures-${{ runner.os }}
+
+      - name: Build
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
+
+      - name: Run tests
+        run: swift test --skip-build
