@@ -14,14 +14,14 @@ described in [Measurements](#measurements).
 | D1 | Event API shape | A generic parser over a consumer protocol with `mutating` callbacks: `DiffEventParser<Consumer: DiffEventConsumer>` | Stored closures; an `AsyncSequence` of events |
 | D2 | Async | No `AsyncSequence` in 0.2. If one is added later, it yields whole files, never lines | Per-event `AsyncStream` (measured 170× slower) |
 | D3 | `@inlinable` | Not up front. Measure again in 2.4 with a downstream consumer | Inline the whole hot path now |
-| D4 | Header delivery | One `FileHeader` value per file, delivered once the extended headers are complete | One callback per extended header line |
+| D4 | Header delivery | One `FileHeader` value per file, delivered once the extended headers are complete; no heap allocation per hunk | One callback per extended header line |
 | D5 | Line content payload | `Span<UInt8>`, passed as a bare callback parameter | `ArraySlice<UInt8>`; `String` |
 | D6 | Paths | Raw bytes (`DiffPath`), with a lossy `String` view; `ChangedLines` keeps `String` keys | `String` everywhere, as today |
 | D7 | CR and line cap | Strip `\r` but record it per line; keep the 1 MiB cap but flag truncated lines, and make the cap configurable | Keep `\r` in the content; drop the cap |
 | D8 | Full-model storage | One byte arena per file, with lines as offsets into it | One `[UInt8]` per line |
-| D9 | Combined diffs | Recognize and skip safely in 0.2: header parsed, `@@@` hunks consumed by their counts, no line events | Full N-parent line events now |
+| D9 | Combined diffs | Recognize (`diff --cc` and `diff --combined`) and skip safely in 0.2: result-side header parsed, `@@@` hunks consumed by their counts, no line events | Full N-parent line events now |
 | D10 | `GIT binary patch` | Recognize, mark binary, keep the block's raw lines for round-tripping; don't decode | Decode base85 and inflate |
-| D11 | Plain `diff -u` | Supported as today; paths reported as written, without git prefix stripping | Treat as unsupported |
+| D11 | Plain `diff -u` | Supported as today, including today's prefix heuristic; epoch timestamps mean `/dev/null`, as in `git apply` | Treat as unsupported |
 
 ## Context and constraints
 
@@ -125,9 +125,16 @@ What decides it:
   the unspecialized one (stable across 5 interleaved process runs), most
   likely code layout; the measurement rules out "it must be inlinable to
   be fast", not more.
-- **The event layer fits the 2.4 gate.** The `ChangedLines`-equivalent
-  collector on the prototype runs within 4–13 % of today's parser, parse
-  only; the gate is the CLI's 0.2 s including I/O and JSON.
+- **The event layer probably fits the 2.4 gate, but M1 is a lower
+  bound.** The `ChangedLines`-equivalent collector on the prototype runs
+  within 4–13 % of today's parser, parse only; the library's own facade
+  is specialized by whole-module optimization, so variant E (+13 %) is
+  the relevant one. The prototype builds no `FileHeader`, buffers no
+  extended headers, and records no flags, so the real parser will cost
+  more. The sketch below is shaped to keep that extra cost per file, not
+  per hunk or line: on the kernel diff that is 13.5k files against 53.6k
+  hunks and 1.6M lines. The gate is the CLI's 0.2 s including I/O and
+  JSON, and 2.4 re-measures it.
 - **Async per event is out of the question**: 170× the whole parse, plus an
   unbounded buffer when the consumer is slower than the producer. Even
   synchronous owned events cost 3× because each line becomes an
@@ -135,10 +142,15 @@ What decides it:
 
 So speed doesn't separate options 1 and 2; semantics do:
 
-- Closures that mutate captured state can't be `@Sendable` under Swift 6
-  (capturing a `var` is an error), so a closure-holding parser is not
-  `Sendable`, and the collector's state lives in captured boxes —
+- The usual closure style — closures that mutate captured state — can't
+  be `@Sendable` under Swift 6 (capturing a `var` is an error), so the
+  parser isn't `Sendable`, and the state lives in captured boxes:
   reference semantics, against the value-types rule.
+- Closures that take `(inout State, …)` and capture nothing avoid both
+  problems. But that is option 1 with closures instead of methods: the
+  parser is still generic over `State`, and the closures add nothing
+  except an extra indirection. It can be offered later as one ready-made
+  consumer (`ClosureConsumer<State>`) on top of option 1.
 - A generic consumer composes: a `Pair<First, Second>` consumer runs
   `ChangedLines` and the summary in one pass with no erasure, and the
   library's own collectors live in the parser's module, so whole-module
@@ -153,17 +165,20 @@ So speed doesn't separate options 1 and 2; semantics do:
 /// Receives a diff's structure as it streams past.
 public protocol DiffEventConsumer {
     /// A file's header block is complete (before its first hunk or binary data).
-    mutating func beginFile(_ header: FileHeader)
-    mutating func beginHunk(_ header: HunkHeader)
+    /// `rawHeader` is the block verbatim, `\r` included, for round-tripping.
+    mutating func beginFile(_ header: FileHeader, rawHeader: Span<UInt8>)
+    /// A hunk starts; `heading` is the text after the closing `@@`.
+    mutating func beginHunk(_ header: HunkHeader, heading: Span<UInt8>)
     /// One content line; `content` excludes the marker column and the terminator.
     mutating func line(_ line: LineInfo, content: Span<UInt8>)
     /// The previous line's side ends without a newline (`\ No newline at end of file`).
     mutating func noNewlineAtEndOfFile()
-    /// One raw line of a `GIT binary patch` block (D10).
-    mutating func binaryPatchLine(_ content: Span<UInt8>)
+    /// One raw line of a `GIT binary patch` block (D10), after the marker line.
+    mutating func binaryPatchLine(_ content: Span<UInt8>, endsWithCarriageReturn: Bool)
+    /// The current file is over: the next file starts, input ends, or the file is abandoned as damaged.
     mutating func endFile()
-    /// A line outside any file: a commit message, mail headers, junk.
-    mutating func unrecognizedLine(_ content: Span<UInt8>)
+    /// A line that is neither header nor hunk content: a commit message, mail headers, `Only in …`, junk.
+    mutating func unrecognizedLine(_ content: Span<UInt8>, endsWithCarriageReturn: Bool)
 }
 // Empty default implementations, so a collector implements only what it needs.
 
@@ -184,12 +199,25 @@ public struct LineInfo: Sendable, Equatable {
 }
 ```
 
-- **Ordering contract**: `beginFile` (`beginHunk` `line`* )* or
-  `binaryPatchLine`*, then `endFile`; `unrecognizedLine` only between
-  files. `noNewlineAtEndOfFile` only directly after a `line`. Every
-  `beginFile` gets its `endFile`, including at `finalize()` and when a
-  damaged file is abandoned, so collectors never track boundaries
+- **Ordering contract**: `beginFile`, then hunks (`beginHunk` followed
+  by `line`s) or `binaryPatchLine`s, then `endFile`.
+  `noNewlineAtEndOfFile` comes only directly after a `line`.
+  `unrecognizedLine` can come before the first file, between files, and
+  inside a file between hunks or after the last one (a `git log -p`
+  commit header, a `-- ` signature, `Only in …`): the parser can't know
+  which file such a line "belongs" to, so it reports its position and
+  the full model keeps it there.
+- **When a file ends**: `endFile` fires when the next file starts (a
+  `diff ` line, or a `--- `/`+++ ` pair outside a hunk, for plain `diff
+  -u`), at `finalize()`, and when a damaged file is abandoned. Every
+  `beginFile` gets its `endFile`, so collectors never track boundaries
   themselves.
+- **No heap allocation per hunk or line.** The hunk heading and the raw
+  header block are spans of the parser's own buffers, and `HunkHeader`
+  and `LineInfo` are plain integers and flags. A collector that ignores
+  them pays nothing. Per file, the `FileHeader`'s paths are the only
+  allocations (today's parser makes one `String` per file too); object
+  IDs are stored inline (hex-decoded, they fit in 32 bytes).
 - **D4, one header value per file**: extended headers arrive as separate
   lines but mean something only together (a rename is `rename from` +
   `rename to` + `similarity index`). Buffering them is cheap (a handful of
@@ -202,7 +230,7 @@ public struct LineInfo: Sendable, Equatable {
   don't break. Whether to rename or retire the facade is for step 5.1.
 - **D2**: no `AsyncSequence` in 0.2. Callers with an async byte source
   call `consume(_:)` inside their own `for await` loop. If one is added
-  later, it should yield owned `DiffFile` values (one per file, ~12k for
+  later, it should yield owned `DiffFile` values (one per file, 13.5k for
   the kernel), never lines.
 - **D3**: don't mark the parser `@inlinable` up front. It would turn its
   internals into `@usableFromInline` API surface for no measured gain.
@@ -220,10 +248,10 @@ public struct FileHeader: Sendable, Equatable {
     public var newPath: DiffPath?      // nil for a deletion
     public var oldMode: FileMode?
     public var newMode: FileMode?
-    public var oldObjectID: [UInt8]?   // abbreviated hashes from the index line, as written
-    public var newObjectID: [UInt8]?
+    public var oldObjectID: ObjectID?  // from the index line: abbreviated, or full with --binary/--full-index
+    public var newObjectID: ObjectID?
+    public var dissimilarity: Int?     // percent, for rewrites (-B)
     public var isBinary: Bool
-    public var rawLines: [UInt8]       // the header block verbatim, for round-tripping (2.6)
 }
 
 public enum Change: Sendable, Equatable {
@@ -239,6 +267,10 @@ public struct FileMode: RawRepresentable, Sendable, Hashable {
     public static let symlink = FileMode(rawValue: 0o120000)
     public static let gitlink = FileMode(rawValue: 0o160000)   // submodule
 }
+
+/// A hex object ID as written (abbreviated or full, SHA-1 or SHA-256),
+/// decoded to at most 32 bytes stored inline, so it never allocates.
+public struct ObjectID: Sendable, Hashable { /* inline bytes + hex length */ }
 ```
 
 How the plan's statuses map, with the oracle for each (step 2.3):
@@ -250,9 +282,13 @@ How the plan's statuses map, with the oracle for each (step 2.3):
 | Modified | anything else | `.modified` | – |
 | Renamed | `similarity index N%`, `rename from/to` | `.renamed(similarity: N)` | `rename a => b (N%)` |
 | Copied | `similarity index N%`, `copy from/to` | `.copied(similarity: N)` | `copy a => b (N%)` |
-| Mode change | `old mode`/`new mode` | `oldMode != newMode` (computed `modeChanged`) | `mode change A => B path` |
+| Mode change | `old mode`/`new mode` | computed `modeChanged`: both modes known and different (an add or delete is not a mode change) | `mode change A => B path` |
 | Binary | `Binary files … differ`, `GIT binary patch` | `isBinary` | numstat `-  -` |
-| Rewrite (`-B`) | `dissimilarity index N%` | an extra `dissimilarity: Int?` | `rewrite path (N%)` |
+| Rewrite (`-B`) | `dissimilarity index N%` | `dissimilarity` | `rewrite path (N%)` |
+
+For an ordinary modification, the mode appears only as the trailer of
+the `index` line (`index 587be6b..5f5521f 100644`); the parser sets
+`oldMode` and `newMode` from it.
 
 Change kind, mode change, and binary are orthogonal — a rename can also
 change content and mode — so they are separate properties rather than one
@@ -291,15 +327,16 @@ a model that can't represent every real repository.
 public struct HunkHeader: Sendable, Equatable {
     public var oldStart: Int, oldCount: Int
     public var newStart: Int, newCount: Int
-    public var heading: [UInt8]   // text after the closing @@ (git's funcname), may be empty
-    public var rawLine: [UInt8]   // `@@ -1 +1 @@` and `@@ -1,1 +1,1 @@` mean the same; keep the spelling
+    public var oldCountIsImplicit: Bool   // `@@ -1 +1 @@` vs `@@ -1,1 +1,1 @@`: same meaning,
+    public var newCountIsImplicit: Bool   // kept so the header renders back as written
 }
 ```
 
 The counts keep today's checks (`maxLineNumber = 1 << 48`, checked
 accumulation). The heading is the section name git found (`@@ -2,4 +2,4 @@
 one` in the measured binary fixture); 84 % of kernel hunks have one. It is
-kept as bytes, since it is file content.
+bytes, since it is file content, and arrives as a `Span` with
+`beginHunk`; the full model copies it into the file's arena.
 
 ### Lines
 
@@ -309,16 +346,19 @@ content is the event's `Span`. In the full model:
 ```swift
 public struct DiffLine: Sendable, Equatable {
     public var info: LineInfo
-    public var content: ArraySlice<UInt8>    // a view into the file's arena (D8)
     public var hasNoNewlineAtEnd: Bool       // from the following `\` line
+    var contentRange: Range<Int32>           // offsets into the file's arena (D8)
 }
+// DiffFile exposes `content(of: DiffLine) -> ArraySlice<UInt8>`; storing a
+// slice per line would retain the arena once per line and double the record.
 ```
 
 `\ No newline at end of file` is its own event because it follows the
 line it modifies; attaching it to the line event would need one line of
 lookahead, which means copying lines that straddle chunks. Its text is
 not checked beyond the leading `\`, as today, because GNU diff localizes
-it.
+it; a localized marker therefore renders back in English, one of the
+round-trip exclusions below.
 
 ### Collectors
 
@@ -330,8 +370,22 @@ it.
   deleted counts. Memory grows with the file count, not the content.
   Oracle: both `--numstat` columns and `--summary`.
 - **Full model** (2.5): `Diff { files: [DiffFile] }`, where `DiffFile`
-  holds the header, hunks, and lines. Memory grows with the diff's
-  content; see D8.
+  holds the header, its raw header bytes, hunks, lines, binary patch
+  lines, and the unrecognized lines at their positions; `Diff` also
+  keeps the lines before the first file (a `git show` commit header).
+  Memory grows with the diff's content; see D8.
+
+**Round-trip (2.6) needs every byte to land somewhere.** With the design
+above, it does: header blocks (including `Binary files … differ` and
+`GIT binary patch` marker lines) are kept raw, `\r` included; content
+lines keep their CR flag; unrecognized lines keep their position and CR
+flag; hunk headers keep their spelling. The property is defined as
+byte-identical for git's own output, and excludes, by design:
+
+- combined diffs (D9 keeps no content for them);
+- lines truncated by the cap (round-trip tests raise it, D7);
+- a localized `\ No newline at end of file`;
+- input that only parses through recovery (damaged files).
 
 ## 3. Content: bytes, String, or Span
 
@@ -365,6 +419,10 @@ and on Swift 6.2.4 in the official `swift:6.2` Linux image
   `withUnsafeBufferPointer`, which needs `unsafe` under
   `strictMemorySafety()` (and Swift 6.4 warns that one of those `unsafe`
   markers is unnecessary, so warning-free on both compilers needs care).
+- **Not verified:** iOS, tvOS, watchOS, and visionOS targets weren't
+  probed. As far as I know `Span` back-deploys only to macOS 10.14.4 and
+  iOS 12.2 — later than SwiftPM's defaults if step 2.1 *drops*
+  `platforms:` — so 2.1 should widen it to explicit floors instead.
 - **Not verified:** running on macOS earlier than 26. The measurements ran
   on macOS 26, where `Span` is in the OS. The build succeeds for macOS
   14, but whether the back-deployed `Span` runs there needs a CI job on a
@@ -401,33 +459,43 @@ full model and the round-trip property (2.6) can't hide them:
   **Recommendation:** keep the cap as the default (it bounds the carry
   buffer for every collector, and content-blind collectors are unaffected),
   report `isTruncated` so truncation is never silent, and make it a
-  `ParsingOptions.maximumLineLength`. The full-model collector's
-  convenience initializer raises it, since that collector's memory grows
+  `ParsingOptions.maximumLineLength` on `DiffEventParser`. The full-model
+  convenience entry point (`Diff(diff:)` and its streaming parser
+  initializer) passes a raised cap, since that collector's memory grows
   with content anyway. Round-trip tests run with the cap raised.
+- **Both flags must stay chunk-invariant.** Today `appendCapped` drops the
+  excess bytes silently and the CR check looks at the capped line, so a
+  `\r` that happens to sit at the cap of an over-long line would be
+  misreported. The splitter therefore tracks, across chunks, whether
+  bytes were dropped and what the real last byte before `\n` was; the
+  1-byte-chunk tests cover it.
 
 ### Full-model storage (D8)
 
 Retaining every line of the kernel diff ([M3](#m3-full-model-memory)):
 
-| Layout | Time | Heap allocations | Peak RSS (input itself ≈ 80 MB) |
+| Layout | Time | Heap allocations | Peak RSS (≈ 80 MB without retaining anything, of which the input buffer is ≈ 74 MB) |
 |---|---|---|---|
 | Events only, nothing retained | 62 ms | ≈ 12.4k | 80 MB |
 | One `[UInt8]` per line | 149 ms | ≈ 1.45M | 358 MB |
 | One byte arena per file, lines as offsets | 101 ms | ≈ 175k | 259 MB |
 
-**Recommendation:** per-file arenas; a `DiffLine` exposes its content as a
-slice of the arena. The prototype's line record is 40 bytes (1.6M lines =
-65 MB); 32-bit offsets would shrink it, at the cost of a per-file 4 GiB
-limit to check. 2.5 documents the result: the full model takes about 2.5×
+**Recommendation:** per-file arenas, with lines storing offsets and the
+file handing out slices on demand (the sketch above). The prototype's line
+record is 40 bytes (1.6M lines = 65 MB); with 32-bit offsets the sketch's
+record is about 24 bytes, at the cost of a per-file 4 GiB limit to check
+(over it, the file is abandoned as damaged). 2.5 documents the result: the full model takes about 2.5×
 the diff's size.
 
 ## 4. Special inputs
 
 ### Combined diffs (`diff --cc`, `@@@`) (D9)
 
-`git show <merge>` and `git log -p --cc` print combined diffs: one
-`diff --cc path` per file, `index a,b..c`, `mode a,b..c`, hunk headers with
-N+1 `@` and N+1 ranges for N parents, and N marker columns per line. The
+`git show <merge>` and `git log -p --cc` print dense combined diffs, and
+`git show -c` the full form: one `diff --cc path` (or `diff --combined
+path`) per file, `index a,b..c`, `mode a,b..c` (`mode 000000,100644..100644`
+when a parent lacked the file), `---`/`+++`, hunk headers with N+1 `@` and
+N+1 ranges for N parents, and N marker columns per line. The
 measured merge ([M4](#m4-special-inputs-against-todays-parser)) shows the
 problem today:
 
@@ -451,8 +519,11 @@ file header.
 Options: (a) recognize and skip safely; (b) full support, with per-parent
 marker columns on line events.
 
-**Recommendation (a) for 0.2:** parse the header into
-`FileHeader(format: .combined(parents: N))` (new-side path and modes),
+**Recommendation (a) for 0.2:** recognize both spellings, and parse the
+header into `FileHeader(format: .combined(parents: N))` with the result
+side only (new path, mode, and object ID; the per-parent values stay in
+the raw header bytes). Cap N at 64 (git's own octopus merges stay far
+below it); a larger N abandons the file as damaged. Then
 consume `@@@` hunks by counting their declared ranges, and emit no line
 events. The counting rule, checked against the example: a line with no
 `-` column is in the result and uses the new side's budget, plus parent
@@ -485,10 +556,12 @@ A forward block, then a reverse one (for `git apply -R`). Each is
 encodes the line's byte count, and a blank line. The data is
 zlib-deflated.
 
-**Recommendation:** mark `isBinary`, parse the `literal`/`delta` sizes
-(overflow-checked) into the summary, and pass every line to
-`binaryPatchLine` so the full model can keep the block verbatim for
-round-tripping. **Don't decode**: inflating zlib without dependencies
+**Recommendation:** mark `isBinary` (the `GIT binary patch` line ends the
+header block, so it is part of the raw header), and pass every following
+line to `binaryPatchLine` so the full model can keep the block verbatim
+for round-tripping. The `literal`/`delta` sizes arrive after `beginFile`,
+so they can't live on `FileHeader`; the summary collector parses them
+(overflow-checked) from those events if it reports binary sizes. **Don't decode**: inflating zlib without dependencies
 means hand-writing a decompressor that has to survive hostile input, for
 a feature no planned consumer needs. Today's behavior (no entry, the next
 file parses normally) was confirmed on a real `--binary` diff.
@@ -500,14 +573,19 @@ GNU/BSD `diff -u` and `diff -ruN` output works today
 timestamps are stripped, and `diff -ruN old new` yields `new/f.txt` and
 `new/added.txt`. Differences from git output that the model must absorb:
 
-- No extended headers, so the status comes from `/dev/null` alone; with
-  `-N`, an absent file is shown with an epoch timestamp instead of
-  `/dev/null`. Timestamps are locale- and implementation-specific, so
-  don't infer creation from them: such files are `.modified`.
-- Paths carry the compared directories (`old/`, `new/`), not git's `a/`
-  `b/`. Report them as written (`format: .unified`, no git prefix
-  heuristics), and offer `DiffPath.droppingLeadingComponents(_:)` for
-  `patch -p1` style stripping.
+- No extended headers, so the status comes from `/dev/null` — or, with
+  `-N`, from an epoch timestamp standing in for it. `git apply` treats an
+  epoch timestamp as `/dev/null` (measured: `git apply --summary -p1` on
+  the `diff -ruN` sample prints `create added.txt`, though the timestamp
+  is `1970-01-01 01:00:00` local time). Follow git, so the 2.3 oracle
+  agrees: recognize the epoch timestamp, in any time zone offset, as
+  creation or deletion.
+- Paths carry the compared directories (`old/`, `new/`) rather than git's
+  `a/` `b/`. Keep today's prefix heuristic for every format, so
+  `ChangedLines` results don't change — Mercurial's plain output, for
+  one, uses `a/` and `b/` — and offer
+  `DiffPath.droppingLeadingComponents(_:)` for `patch -p1` style
+  stripping. `format: .unified` tells callers which case they have.
 - `diff -r` prints `Only in old: x` for unpaired files without `-N`; those
   are `unrecognizedLine`s.
 - A single-file `diff -u a b` has no `diff ` line; the `--- `/`+++ ` pair
@@ -525,7 +603,9 @@ it:
 - Every number (modes, similarity, sizes, combined ranges) uses the
   checked digit scanner with a cap; similarity is clamped to 0–100.
 - The header buffer is bounded (a line count and the line cap), so a
-  stream of junk header lines can't grow memory.
+  stream of junk header lines can't grow memory. A header block over the
+  bound abandons the file as damaged rather than delivering a partial
+  raw header.
 - `diff --git` splitting, quoted-path unquoting, and `rename from/to`
   parsing degrade to "unknown path" rather than trapping.
 
@@ -549,9 +629,11 @@ For the maintainer; each names the decision it affects.
 6. **Damage reporting.** Should there be a `recoveredFromMalformedInput()`
    event (no-op by default)? It would let 2.7 assert "damage stays inside
    one file" directly, and let tools warn users.
-7. **Platforms.** Step 2.1 widens `platforms:`. If the floor rises to
-   macOS 26 for other reasons, `UTF8Span` and `Array.span` become usable
-   and the conveniences in D5 get simpler.
+7. **Platforms.** Step 2.1 widens or drops `platforms:`. With D5, it
+   should widen it to explicit floors at or above `Span`'s back-deployment
+   targets rather than drop it. If the floor rises to macOS 26 for other
+   reasons, `UTF8Span` and `Array.span` become usable and the
+   conveniences in D5 get simpler.
 
 ## Measurements
 
