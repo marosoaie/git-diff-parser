@@ -1,0 +1,6 @@
+# Nested override for test sources only (SwiftLint merges this with the
+# root configuration for files under Tests/).
+disabled_rules:
+  # AGENTS.md permits force unwraps in tests; fixtures also build URLs from
+  # known-good literals.
+  - force_unwrapping
