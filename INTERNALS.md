@@ -21,10 +21,12 @@ than per-line sets, so memory scales with the number of *edits*, not lines:
 a full-file rewrite is a single range. Membership tests are binary searches,
 with tolerance comparisons ordered so extreme values cannot overflow.
 
-One Foundation trap worth knowing when feeding the parser from a file:
-`FileHandle.read` returns autoreleased `Data`, so wrap each read iteration in
-`autoreleasepool` — without it the chunks accumulate until process exit and
-streaming silently degrades to whole-file memory.
+The library itself doesn't import Foundation. One Foundation trap worth
+knowing when a caller feeds it from a file on Darwin: `FileHandle.read`
+returns autoreleased `Data`, so wrap each read iteration in `autoreleasepool`
+— without it the chunks accumulate until process exit and streaming silently
+degrades to whole-file memory. Linux has no autorelease pool and no such
+trap.
 
 Individual lines are processed truncated to 1 MiB (uniformly, so results
 stay chunking-independent). This caps the carry buffer a pathological
@@ -63,7 +65,9 @@ re-benchmarked on these fixtures before merging (see AGENTS.md).
   per-file changed-line count against git's own patch parser
   (`git apply --numstat`) as an independent oracle. Fixtures are downloaded
   from their canonical URLs and cached in
-  `~/Library/Caches/git-diff-parser-tests/`; cache entries are re-validated
+  `~/Library/Caches/git-diff-parser-tests/` (on Linux,
+  `$XDG_CACHE_HOME/git-diff-parser-tests/`, falling back to `~/.cache`);
+  cache entries are re-validated
   before use. Nothing large is committed to the repo — keeping the clone
   free of Git LFS matters because SwiftPM consumers clone it on machines
   that may have broken or absent `git-lfs` setups.

@@ -1,5 +1,3 @@
-import Foundation
-
 /// Streaming parser for unified diffs as produced by `git diff` / `git show`.
 ///
 /// Feed it the diff in arbitrary byte chunks (any size, split anywhere) and
@@ -11,6 +9,9 @@ import Foundation
 ///     var parser = DiffParser()
 ///     while let chunk = readSomeBytes() { parser.consume(chunk) }
 ///     let changes = parser.finalize()
+///
+/// The library doesn't depend on Foundation; feed `Data` read from a
+/// `FileHandle` as `[UInt8](data)`.
 public struct DiffParser: ByteLineConsumer, Sendable {
     var partialLine: [UInt8] = []
 
@@ -26,22 +27,22 @@ public struct DiffParser: ByteLineConsumer, Sendable {
     private var remainingOld = 0
     private var remainingNew = 0
 
+    /// Creates a parser with no input consumed.
     public init() {}
 
     // MARK: Input
 
+    /// Feeds the next chunk of the diff; it may end mid-line.
     public mutating func consume(_ chunk: ArraySlice<UInt8>) {
         consumeChunk(chunk)
     }
 
+    /// Feeds the next chunk of the diff; it may end mid-line.
     public mutating func consume(_ chunk: [UInt8]) {
         consumeChunk(chunk[...])
     }
 
-    public mutating func consume(_ chunk: Data) {
-        consumeChunk([UInt8](chunk)[...])
-    }
-
+    /// Feeds the next chunk of the diff as UTF-8 text; it may end mid-line.
     public mutating func consume(_ text: String) {
         consumeChunk(Array(text.utf8)[...])
     }

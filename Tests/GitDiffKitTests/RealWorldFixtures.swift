@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import GitDiffKit
 
 /// Large diffs from notorious open-source projects, used to validate the
@@ -37,9 +40,28 @@ struct FixtureError: Error, CustomStringConvertible {
 /// Materializes fixtures as uncompressed diff files on disk from a cached
 /// download, fetching from the canonical remote URL on a cache miss.
 enum RealWorldFixtureStore {
-    static let cacheDirectory = FileManager.default
-        .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    static let cacheDirectory = platformCacheRoot
         .appendingPathComponent("git-diff-parser-tests", isDirectory: true)
+
+    private static var platformCacheRoot: URL {
+        #if canImport(Darwin)
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        #else
+        xdgCacheHome(
+            environment: ProcessInfo.processInfo.environment,
+            home: FileManager.default.homeDirectoryForCurrentUser
+        )
+        #endif
+    }
+
+    /// `$XDG_CACHE_HOME`, or `~/.cache` when it is unset. The XDG Base
+    /// Directory spec says a relative path is invalid and must be ignored.
+    static func xdgCacheHome(environment: [String: String], home: URL) -> URL {
+        guard let configured = environment["XDG_CACHE_HOME"], configured.hasPrefix("/") else {
+            return home.appendingPathComponent(".cache", isDirectory: true)
+        }
+        return URL(fileURLWithPath: configured, isDirectory: true)
+    }
 
     static func localDiffURL(for fixture: RealWorldFixture) async throws -> URL {
         let cached = cacheDirectory.appendingPathComponent(fixture.rawValue + ".diff")
@@ -78,7 +100,15 @@ enum RealWorldFixtureStore {
     }
 
     private static func decompressXZ(_ data: Data) throws -> Data {
+        #if canImport(Darwin)
         try (data as NSData).decompressed(using: .lzma) as Data
+        #else
+        // swift-corelibs-foundation has no Compression framework; use xz(1).
+        let compressed = cacheDirectory.appendingPathComponent("download-\(UUID().uuidString).xz")
+        try data.write(to: compressed)
+        defer { try? FileManager.default.removeItem(at: compressed) }
+        return try Subprocess.output(of: ["xz", "--decompress", "--stdout", compressed.path])
+        #endif
     }
 
     private static func download(_ url: URL) async throws -> Data {
@@ -106,19 +136,7 @@ enum RealWorldFixtureStore {
 /// patch parser, `git apply --numstat`.
 enum GitNumstat {
     static func addedLineCounts(forDiffAt url: URL) throws -> [String: Int] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git", "apply", "--numstat", url.path]
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = Pipe()
-        try process.run()
-        // Drain before waiting, or a full pipe buffer deadlocks the child.
-        let output = try stdout.fileHandleForReading.readToEnd() ?? Data()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw FixtureError("git apply --numstat exited with \(process.terminationStatus)")
-        }
+        let output = try Subprocess.output(of: ["git", "apply", "--numstat", url.path])
 
         var counts: [String: Int] = [:]
         for line in String(decoding: output, as: UTF8.self).split(separator: "\n") {

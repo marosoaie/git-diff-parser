@@ -1,5 +1,3 @@
-import Foundation
-
 /// Chunk-to-line plumbing for the streaming diff parser.
 ///
 /// Chunks may be split at arbitrary byte offsets — including in the middle

@@ -12,7 +12,10 @@ log parsing, PR diagnostics, the CLI) lives in
 this repository.
 
 The package takes **no dependencies**, and that is part of what it offers;
-adding one needs the maintainer's explicit agreement. `ByteLineConsumer`
+adding one needs the maintainer's explicit agreement. `Sources/` doesn't
+import Foundation either, so the library builds on every Apple platform and
+on Linux; only the tests may use it, guarding Darwin-only APIs with
+`#if canImport(Darwin)`. `ByteLineConsumer`
 (chunk-to-line splitting) is internal.
 
 ## Commands
@@ -34,7 +37,9 @@ rule fights a deliberate design decision, disable it in config or inline —
 always with a comment saying why.
 
 Real-world test fixtures resolve from
-`~/Library/Caches/git-diff-parser-tests/`, then the network.
+`~/Library/Caches/git-diff-parser-tests/` (on Linux,
+`${XDG_CACHE_HOME:-~/.cache}/git-diff-parser-tests/`), then the network.
+CI runs the full suite on macOS and on Ubuntu (`swift:6.2` image).
 
 ## Coding style
 
@@ -78,9 +83,9 @@ tests. The library does not throw on malformed input — it degrades locally
 **Streaming invariants.** Hot paths parse bytes (`ArraySlice<UInt8>`);
 `String` and `Regex` are only reached after a cheap byte-level gate. Results
 must be byte-for-byte identical for any input chunking (tested down to
-1-byte chunks). Wrap `FileHandle.read` loops in `autoreleasepool` — without
-it the autoreleased chunks accumulate and streaming silently degrades to
-whole-file memory. Store line sets as merged ranges (`LineRangeSet`), never
+1-byte chunks). On Darwin, wrap `FileHandle.read` loops in
+`autoreleasepool` — without it the autoreleased chunks accumulate and
+streaming silently degrades to whole-file memory. Store line sets as merged ranges (`LineRangeSet`), never
 per-line collections.
 
 **Multiline string literals over `+`-concatenated literals** — for any
