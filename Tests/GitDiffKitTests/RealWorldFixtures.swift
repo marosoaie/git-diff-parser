@@ -111,7 +111,9 @@ enum RealWorldFixtureStore {
         try (data as NSData).decompressed(using: .lzma) as Data
         #else
         // swift-corelibs-foundation has no Compression framework; use xz(1).
-        let compressed = cacheDirectory.appendingPathComponent("download-\(UUID().uuidString).xz")
+        // In the temporary folder, so a killed run can't leave it in the cache.
+        let compressed = FileManager.default.temporaryDirectory
+            .appendingPathComponent("git-diff-parser-tests-\(UUID().uuidString).xz")
         try data.write(to: compressed)
         defer { try? FileManager.default.removeItem(at: compressed) }
         return try Subprocess.output(of: ["xz", "--decompress", "--stdout", compressed.path])
@@ -143,9 +145,14 @@ enum RealWorldFixtureStore {
 /// patch parser, `git apply --numstat`.
 enum GitNumstat {
     static func addedLineCounts(forDiffAt url: URL) throws -> [String: Int] {
+        // Inside a work tree, git apply ignores every path outside the
+        // current subdirectory. Run next to the diff and stop git from
+        // discovering an enclosing repository, wherever the cache lives.
+        let directory = url.deletingLastPathComponent()
         let output = try Subprocess.output(
             of: ["git", "apply", "--numstat", url.path],
-            in: url.deletingLastPathComponent()
+            in: directory,
+            environment: ["GIT_CEILING_DIRECTORIES": directory.deletingLastPathComponent().path]
         )
 
         var counts: [String: Int] = [:]

@@ -38,11 +38,15 @@ struct FixtureCacheTests {
         #if canImport(Darwin)
         #expect(directory.path.hasSuffix("/Library/Caches/git-diff-parser-tests"))
         #else
-        let expected = RealWorldFixtureStore.xdgCacheHome(
-            environment: ProcessInfo.processInfo.environment,
-            fallbackHome: FileManager.default.homeDirectoryForCurrentUser
-        )
-        #expect(directory.deletingLastPathComponent().path == expected.path)
+        // CI restores the cache from $HOME/.cache, and $HOME there differs
+        // from the passwd home that Foundation reports.
+        let environment = ProcessInfo.processInfo.environment
+        let expected = environment["XDG_CACHE_HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil }
+            ?? environment["HOME"].map { "\($0)/.cache" }
+        if let expected {
+            #expect(directory.deletingLastPathComponent().standardizedFileURL.path
+                == URL(fileURLWithPath: expected).standardizedFileURL.path)
+        }
         #endif
     }
 }

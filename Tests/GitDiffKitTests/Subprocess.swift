@@ -5,13 +5,18 @@ enum Subprocess {
     /// Returns the command's standard output, throwing with its standard
     /// error if it exits nonzero.
     ///
-    /// Runs in `directory` when given, so `git` doesn't pick up whatever
-    /// repository the test process happens to start in.
-    static func output(of arguments: [String], in directory: URL? = nil) throws -> Data {
+    /// Runs in `directory` when given, with `environment` added to the
+    /// test process's own.
+    static func output(
+        of arguments: [String],
+        in directory: URL? = nil,
+        environment: [String: String] = [:]
+    ) throws -> Data {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = arguments
         process.currentDirectoryURL = directory
+        process.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
         let stdout = Pipe()
         process.standardOutput = stdout
         // A file rather than a pipe: an undrained stderr pipe can fill up and

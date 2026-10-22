@@ -61,13 +61,14 @@ jobs:
       - uses: actions/checkout@v7
 
       # The fixture cache falls back to $HOME/.cache, and actions/cache
-      # expands ~ from the same HOME inside the container.
+      # expands ~ from the same HOME inside the container. .build stays
+      # uncached: the swift:6.2 tag moves across patch releases, a key
+      # without the compiler would restore stale modules, and a build
+      # without dependencies takes seconds.
       - uses: actions/cache@v6
         with:
-          path: |
-            .build
-            ~/.cache/git-diff-parser-tests
-          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift') }}
+          path: ~/.cache/git-diff-parser-tests
+          key: fixtures-${{ runner.os }}
 
       - name: Build
         run: swift build --build-tests -Xswiftc -warnings-as-errors
