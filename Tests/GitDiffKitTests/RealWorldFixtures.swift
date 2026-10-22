@@ -49,18 +49,25 @@ enum RealWorldFixtureStore {
         #else
         xdgCacheHome(
             environment: ProcessInfo.processInfo.environment,
-            home: FileManager.default.homeDirectoryForCurrentUser
+            fallbackHome: FileManager.default.homeDirectoryForCurrentUser
         )
         #endif
     }
 
-    /// `$XDG_CACHE_HOME`, or `~/.cache` when it is unset. The XDG Base
-    /// Directory spec says a relative path is invalid and must be ignored.
-    static func xdgCacheHome(environment: [String: String], home: URL) -> URL {
-        guard let configured = environment["XDG_CACHE_HOME"], configured.hasPrefix("/") else {
-            return home.appendingPathComponent(".cache", isDirectory: true)
+    /// `$XDG_CACHE_HOME`, or `$HOME/.cache` when it is unset, following the
+    /// XDG Base Directory spec, which says to ignore relative paths.
+    ///
+    /// `fallbackHome` stands in for a missing `HOME`. It isn't consulted
+    /// first because Foundation on Linux reads the passwd entry and ignores
+    /// `HOME`, unlike the shell's `~` that CI caches expand.
+    static func xdgCacheHome(environment: [String: String], fallbackHome: URL) -> URL {
+        func absoluteDirectory(_ variable: String) -> URL? {
+            environment[variable].flatMap { path in
+                path.hasPrefix("/") ? URL(fileURLWithPath: path, isDirectory: true) : nil
+            }
         }
-        return URL(fileURLWithPath: configured, isDirectory: true)
+        return absoluteDirectory("XDG_CACHE_HOME")
+            ?? (absoluteDirectory("HOME") ?? fallbackHome).appendingPathComponent(".cache", isDirectory: true)
     }
 
     static func localDiffURL(for fixture: RealWorldFixture) async throws -> URL {
@@ -136,7 +143,10 @@ enum RealWorldFixtureStore {
 /// patch parser, `git apply --numstat`.
 enum GitNumstat {
     static func addedLineCounts(forDiffAt url: URL) throws -> [String: Int] {
-        let output = try Subprocess.output(of: ["git", "apply", "--numstat", url.path])
+        let output = try Subprocess.output(
+            of: ["git", "apply", "--numstat", url.path],
+            in: url.deletingLastPathComponent()
+        )
 
         var counts: [String: Int] = [:]
         for line in String(decoding: output, as: UTF8.self).split(separator: "\n") {
