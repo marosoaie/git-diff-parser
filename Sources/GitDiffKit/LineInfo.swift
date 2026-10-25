@@ -20,7 +20,8 @@ public struct LineInfo: Sendable, Equatable {
     /// content, so CRLF diffs parse like LF ones; this flag renders it back.
     public var endsWithCarriageReturn: Bool
     /// Whether the line was longer than `ParsingOptions.maximumLineLength`
-    /// and its content is cut to that many bytes.
+    /// and was cut to that many bytes; the cap counts the marker column, so
+    /// the content keeps one byte less.
     public var isTruncated: Bool
 
     /// Creates line information from its parts.
