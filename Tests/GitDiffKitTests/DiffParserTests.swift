@@ -198,17 +198,36 @@ struct DiffParserTests {
     @Test("git's full C-style escape set is decoded in quoted paths")
     func controlCharacterEscapes() {
         let expected = String(decoding: [0x07, 0x08, 0x0B, 0x0C], as: UTF8.self) + ".txt"
-        #expect(DiffParser.unquote(#""\a\b\v\f.txt""#) == expected)
+        let diff = """
+            --- /dev/null
+            +++ "b/\\a\\b\\v\\f.txt"
+            @@ -0,0 +1 @@
+            +x
+
+            """
+        #expect(ChangedLines(diff: diff).lineSets == [expected: [1]])
     }
 
-    @Test("mnemonic destination prefixes are stripped like the default b/")
-    func mnemonicPrefixes() {
-        #expect(DiffParser.parseFileHeaderPath("w/Sources/Foo.swift") == "Sources/Foo.swift")
-        #expect(DiffParser.parseFileHeaderPath("i/x") == "x")
-        #expect(DiffParser.parseFileHeaderPath("c/x", pairedWith: .letter("i")) == "x")
-        #expect(DiffParser.parseFileHeaderPath("o/x", pairedWith: .devNull) == "x")
-        // Only single-letter prefix components qualify.
-        #expect(DiffParser.parseFileHeaderPath("workspace/file") == "workspace/file")
+    @Test(
+        "mnemonic destination prefixes are stripped like the default b/",
+        arguments: [
+            ("/dev/null", "w/Sources/Foo.swift", "Sources/Foo.swift"),
+            ("/dev/null", "i/x", "x"),
+            ("i/x", "c/x", "x"),
+            ("/dev/null", "o/x", "x"),
+            // Only single-letter prefix components qualify.
+            ("/dev/null", "workspace/file", "workspace/file"),
+        ]
+    )
+    func mnemonicPrefixes(oldSide: String, newSide: String, path: String) {
+        let diff = """
+            --- \(oldSide)
+            +++ \(newSide)
+            @@ -0,0 +1 @@
+            +x
+
+            """
+        #expect(ChangedLines(diff: diff).lineSets == [path: [1]])
     }
 
     @Test("git diff -R's swapped a/ prefix is stripped on the new side")
@@ -243,9 +262,10 @@ struct DiffParserTests {
 
     @Test("hunk header with omitted counts defaults to 1")
     func hunkHeaderDefaults() {
-        let header = DiffParser.parseHunkHeader(ArraySlice("@@ -3 +7 @@ func x()".utf8))
-        #expect(header?.newStart == 7)
-        #expect(header?.oldCount == 1)
-        #expect(header?.newCount == 1)
+        let parsed = HunkHeader.parse(ArraySlice("@@ -3 +7 @@ func x()".utf8))
+        #expect(parsed?.header == HunkHeader(
+            oldStart: 3, oldCount: 1, newStart: 7, newCount: 1, oldCountIsImplicit: true, newCountIsImplicit: true
+        ))
+        #expect(parsed.map { Array($0.heading) } == Array(" func x()".utf8))
     }
 }

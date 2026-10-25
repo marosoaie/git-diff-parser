@@ -15,7 +15,7 @@ protocol ByteLineConsumer {
 }
 
 /// One input line as the splitter hands it on.
-struct RawLine {
+struct RawLine: Sendable {
     /// The line without its terminator or trailing `\r`, cut to the cap.
     var bytes: ArraySlice<UInt8>
     var endsWithCarriageReturn: Bool

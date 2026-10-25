@@ -6,7 +6,7 @@ import Testing
 /// `git apply` reads them where it accepts them at all, and never trap.
 extension MalformedInputTests {
     static func headers(_ diff: String) -> [FileHeader] {
-        FileHeaderScanner.files(in: Array(diff.utf8)).map(\.header)
+        FileTally.files(in: Array(diff.utf8)).map(\.header)
     }
 
     static let damagedHeaders = [
@@ -72,7 +72,7 @@ extension MalformedInputTests {
         let url = directory.appendingPathComponent("damaged.diff")
         try Data(diff.utf8).write(to: url)
 
-        let files = FileHeaderScanner.files(in: Array(diff.utf8))
+        let files = FileTally.files(in: Array(diff.utf8))
         Oracle.expectEqualLines(GitApply.summary(of: files), try GitApply.summary(forDiffAt: url))
         Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: url))
     }
@@ -115,7 +115,8 @@ extension MalformedInputTests {
 
     @Test("a megabyte of spaces in a diff --git line splits in linear time")
     func hugeSpaceRun() {
-        let line = "diff --git " + String(repeating: " ", count: 1 << 20)
+        // Just inside the header bound of 1 MiB.
+        let line = "diff --git " + String(repeating: " ", count: (1 << 20) - 64)
         let clock = ContinuousClock()
         let elapsed = clock.measure {
             #expect(Self.headers(line + "\nold mode 100644\n").count == 1)

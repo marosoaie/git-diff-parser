@@ -1,8 +1,8 @@
 /// Assembles one file's `FileHeader` from its header block, a line at a time.
 ///
-/// Start it with the file's `diff ` line (or a plain diff's `--- ` line),
-/// feed it the following lines until `consume(_:)` returns false, then
-/// take `header(isBinary:)`. Values that don't parse — an overflowing
+/// Start it with the file's `diff ` line (or empty, for a plain diff's
+/// `---`/`+++` pair), feed it the following lines until `consume(_:)`
+/// returns `.notHeader`, then take `header(isBinary:parents:)`. Values that don't parse — an overflowing
 /// mode, a similarity over 100, a non-hex object ID — are ignored, as
 /// `git apply` ignores or rejects them, so damage degrades the header
 /// instead of trapping. Repeated lines replace earlier ones, so memory
@@ -14,10 +14,24 @@ struct FileHeaderParser: Sendable {
         case path([UInt8])
     }
 
-    private typealias Handler = @Sendable (inout FileHeaderParser, ArraySlice<UInt8>) -> Void
+    /// Takes a header line's value; false when the value didn't parse and
+    /// was ignored.
+    private typealias Handler = @Sendable (inout FileHeaderParser, ArraySlice<UInt8>) -> Bool
 
+    /// What `consume(_:)` made of a line.
+    enum LineResult: Equatable {
+        /// Not a header line: the block has ended.
+        case notHeader
+        case accepted
+        /// A header line whose value didn't parse, so it was ignored.
+        case valueIgnored
+    }
+
+    /// The format; a combined diff's parent count is only known when the
+    /// block ends, so it is passed to `header(isBinary:parents:)`.
     let format: FileHeader.Format
-    /// The `diff --git` line's name, when both of its names agree.
+    /// The `diff --git` line's name, when both of its names agree, or a
+    /// combined diff's single name.
     private let gitLinePath: DiffPath?
     private var oldSide: Side?
     private var newSide: Side?
@@ -33,19 +47,28 @@ struct FileHeaderParser: Sendable {
     private var newMode: FileMode?
     /// The mode an `index` line names for both sides of a modification.
     private var indexMode: FileMode?
+    /// A combined diff's parent count, as its `index` or `mode` line lists
+    /// them.
+    private(set) var parentCountHint: Int?
+    /// Whether a plain diff's side ends in an epoch timestamp, which
+    /// `diff -N` writes for a missing file.
+    private var oldSideIsEpoch = false
+    private var newSideIsEpoch = false
     private var similarity: Int?
     private var dissimilarity: Int?
     private var oldObjectID: ObjectID?
     private var newObjectID: ObjectID?
 
-    /// Starts a file at its `diff ` line; nil for a combined diff
-    /// (`diff --cc`, `diff --combined`), which 0.2 skips (D9).
-    init?(diffLine line: ArraySlice<UInt8>) {
+    /// Starts a file at its `diff ` line.
+    init(diffLine line: ArraySlice<UInt8>) {
         if let names = line.dropping(prefix: Self.gitPrefix) {
             format = .git
             gitLinePath = Self.gitLinePath(names)
-        } else if line.dropping(prefix: Self.combinedPrefix) != nil || line.dropping(prefix: Self.densePrefix) != nil {
-            return nil
+        } else if let name = line.dropping(prefix: Self.densePrefix) ?? line.dropping(prefix: Self.combinedPrefix) {
+            // Only the result side is parsed, so the name is never prefixed.
+            format = .combined(parents: 0)
+            let bytes = PathQuoting.unquoted(name)
+            gitLinePath = bytes.isEmpty ? nil : DiffPath(bytes)
         } else {
             // `diff -ruN old/x new/x` and the like: paths come from ---/+++.
             format = .unified
@@ -53,30 +76,44 @@ struct FileHeaderParser: Sendable {
         }
     }
 
-    /// Starts a plain diff's file at its `--- ` line.
-    init(plainOldSideLine line: ArraySlice<UInt8>) {
+    /// Starts a plain diff's file, whose `---`/`+++` pair comes next.
+    init() {
         format = .unified
         gitLinePath = nil
-        consume(line)
     }
 
-    /// Takes the next line of the header block. Returns false, changing
-    /// nothing, when the line isn't a header line: the block has ended.
+    var isCombined: Bool {
+        if case .combined = format { true } else { false }
+    }
+
+    /// Takes the next line of the header block. Returns `.notHeader`,
+    /// changing nothing, when the line isn't a header line: the block has
+    /// ended.
     @discardableResult
-    mutating func consume(_ line: ArraySlice<UInt8>) -> Bool {
-        let handlers = format == .git ? Self.gitHandlers : Self.unifiedHandlers
+    mutating func consume(_ line: ArraySlice<UInt8>) -> LineResult {
+        let handlers = switch format {
+        case .git: Self.gitHandlers
+        case .combined: Self.combinedHandlers
+        case .unified: Self.unifiedHandlers
+        }
         guard let (handler, value) = handlers.lazy
             .compactMap({ prefix, handler in line.dropping(prefix: prefix).map { (handler, $0) } })
             .first
-        else { return false }
-        handler(&self, value)
-        return true
+        else { return .notHeader }
+        return handler(&self, value) ? .accepted : .valueIgnored
     }
 
-    /// The header as assembled so far.
-    func header(isBinary: Bool) -> FileHeader {
-        let isAdded = isCreation || oldSide == .devNull
-        let isDeleted = !isAdded && (isDeletion || newSide == .devNull)
+    /// The header as assembled so far; `parents` is used only for a
+    /// combined diff.
+    func header(isBinary: Bool, parents: Int) -> FileHeader {
+        if isCombined {
+            return combinedHeader(isBinary: isBinary, parents: parents)
+        }
+        // `git apply` reads an epoch timestamp as `/dev/null` in a plain
+        // diff (apply.c's `has_epoch_timestamp`), the old side first.
+        let readsEpoch = format == .unified && oldSide != .devNull && newSide != .devNull
+        let isAdded = isCreation || oldSide == .devNull || (readsEpoch && oldSideIsEpoch)
+        let isDeleted = !isAdded && (isDeletion || newSide == .devNull || (readsEpoch && newSideIsEpoch))
         // git's precedence when markers contradict: creation, deletion,
         // rename, copy.
         let change: Change = if isAdded {
@@ -114,73 +151,48 @@ struct FileHeaderParser: Sendable {
     private static let densePrefix = Array("diff --cc ".utf8)
 
     private static let sideHandlers: [([UInt8], Handler)] = [
-        (Array("--- ".utf8), { $0.oldSide = side(of: $1) }),
-        (Array("+++ ".utf8), { $0.newSide = side(of: $1) }),
+        (Array("--- ".utf8), {
+            $0.oldSide = side(of: $1)
+            $0.oldSideIsEpoch = EpochTimestamp.ends($1)
+            return $0.oldSide != .path([])
+        }),
+        (Array("+++ ".utf8), {
+            $0.newSide = side(of: $1)
+            $0.newSideIsEpoch = EpochTimestamp.ends($1)
+            return $0.newSide != .path([])
+        }),
     ]
 
     /// git's extended headers (`apply.c`'s table), plus `---`/`+++`.
     private static let gitHandlers: [([UInt8], Handler)] = sideHandlers + [
-        (Array("old mode ".utf8), { $0.oldMode = FileMode(octal: $1) }),
-        (Array("new mode ".utf8), { $0.newMode = FileMode(octal: $1) }),
-        (Array("deleted file mode ".utf8), { $0.isDeletion = true; $0.oldMode = FileMode(octal: $1) }),
-        (Array("new file mode ".utf8), { $0.isCreation = true; $0.newMode = FileMode(octal: $1) }),
-        (Array("copy from ".utf8), { $0.isCopy = true; $0.copyFrom = path(of: $1) }),
-        (Array("copy to ".utf8), { $0.isCopy = true; $0.copyTo = path(of: $1) }),
+        (Array("old mode ".utf8), { $0.oldMode = FileMode(octal: $1); return $0.oldMode != nil }),
+        (Array("new mode ".utf8), { $0.newMode = FileMode(octal: $1); return $0.newMode != nil }),
+        (Array("deleted file mode ".utf8), {
+            $0.isDeletion = true
+            $0.oldMode = FileMode(octal: $1)
+            return $0.oldMode != nil
+        }),
+        (Array("new file mode ".utf8), {
+            $0.isCreation = true
+            $0.newMode = FileMode(octal: $1)
+            return $0.newMode != nil
+        }),
+        (Array("copy from ".utf8), { $0.isCopy = true; $0.copyFrom = path(of: $1); return $0.copyFrom != nil }),
+        (Array("copy to ".utf8), { $0.isCopy = true; $0.copyTo = path(of: $1); return $0.copyTo != nil }),
         // "rename old"/"rename new" are git's original spellings.
-        (Array("rename from ".utf8), { $0.isRename = true; $0.renameFrom = path(of: $1) }),
-        (Array("rename old ".utf8), { $0.isRename = true; $0.renameFrom = path(of: $1) }),
-        (Array("rename to ".utf8), { $0.isRename = true; $0.renameTo = path(of: $1) }),
-        (Array("rename new ".utf8), { $0.isRename = true; $0.renameTo = path(of: $1) }),
-        (Array("similarity index ".utf8), { $0.similarity = percentage(of: $1) }),
-        (Array("dissimilarity index ".utf8), { $0.dissimilarity = percentage(of: $1) }),
+        (Array("rename from ".utf8), { $0.isRename = true; $0.renameFrom = path(of: $1); return $0.renameFrom != nil }),
+        (Array("rename old ".utf8), { $0.isRename = true; $0.renameFrom = path(of: $1); return $0.renameFrom != nil }),
+        (Array("rename to ".utf8), { $0.isRename = true; $0.renameTo = path(of: $1); return $0.renameTo != nil }),
+        (Array("rename new ".utf8), { $0.isRename = true; $0.renameTo = path(of: $1); return $0.renameTo != nil }),
+        (Array("similarity index ".utf8), { $0.similarity = percentage(of: $1); return $0.similarity != nil }),
+        (Array("dissimilarity index ".utf8), {
+            $0.dissimilarity = percentage(of: $1)
+            return $0.dissimilarity != nil
+        }),
         (Array("index ".utf8), { $0.parseIndex($1) }),
     ]
 
     private static let unifiedHandlers = sideHandlers
-
-    /// `index <old>..<new>[ <mode>]`; each part that doesn't parse is
-    /// dropped on its own. A combined diff's `a,b..c` never gets here.
-    private mutating func parseIndex(_ value: ArraySlice<UInt8>) {
-        // As in git, the first dot must start the "..".
-        guard let dot = value.firstIndex(of: UInt8(ascii: ".")),
-              let rest = value[dot...].dropping(prefix: Self.dotDot)
-        else { return }
-        let newEnd = rest.firstIndex(of: UInt8(ascii: " ")) ?? rest.endIndex
-        oldObjectID = ObjectID(hex: value[..<dot])
-        newObjectID = ObjectID(hex: rest[..<newEnd])
-        indexMode = newEnd < rest.endIndex ? FileMode(octal: rest[rest.index(after: newEnd)...]) : nil
-    }
-
-    private static let dotDot = Array("..".utf8)
-
-    /// A `similarity`/`dissimilarity index` value: leading digits, at most
-    /// 100. Like `git apply`, a larger value is ignored rather than clamped.
-    private static func percentage(of value: ArraySlice<UInt8>) -> Int? {
-        let digits = value.prefix { (UInt8(ascii: "0")...UInt8(ascii: "9")).contains($0) }
-        guard !digits.isEmpty else { return nil }
-        // Saturates past 100 instead of overflowing on an absurd digit run.
-        let number = digits.reduce(0) { partial, digit in
-            partial > 100 ? partial : partial * 10 + Int(digit - UInt8(ascii: "0"))
-        }
-        return number <= 100 ? number : nil
-    }
-
-    /// A `rename`/`copy` path: the rest of the line, unquoted, never
-    /// prefixed.
-    private static func path(of value: ArraySlice<UInt8>) -> DiffPath? {
-        let bytes = PathQuoting.unquoted(value)
-        return bytes.isEmpty ? nil : DiffPath(bytes)
-    }
-
-    /// A `---`/`+++` payload: up to a tab-appended trailer (a timestamp,
-    /// or git's marker after a path with spaces), then unquoted.
-    private static func side(of value: ArraySlice<UInt8>) -> Side {
-        let name = value.prefix { $0 != UInt8(ascii: "\t") }
-        let bytes = PathQuoting.unquoted(name)
-        return bytes == devNull ? .devNull : .path(bytes)
-    }
-
-    private static let devNull = Array("/dev/null".utf8)
 
     // MARK: Prefixes and paths
 
@@ -262,6 +274,107 @@ struct FileHeaderParser: Sendable {
     private static func isSeparator(_ byte: UInt8) -> Bool {
         byte == UInt8(ascii: " ") || byte == UInt8(ascii: "\t")
     }
+}
+
+// MARK: Combined diffs
+
+extension FileHeaderParser {
+    /// A combined diff's headers, read for the result side only. Parents'
+    /// values are lists (`index a,b..c`, `mode a,b..c`), which also give
+    /// the parent count.
+    private static let combinedHandlers: [([UInt8], Handler)] = sideHandlers + [
+        (Array("index ".utf8), { parser, value in
+            guard let result = parser.parseCombinedList(value) else { return false }
+            parser.newObjectID = ObjectID(hex: result)
+            return parser.newObjectID != nil
+        }),
+        (Array("mode ".utf8), { parser, value in
+            guard let result = parser.parseCombinedList(value) else { return false }
+            parser.newMode = FileMode(octal: result)
+            return parser.newMode != nil
+        }),
+        (Array("new file mode ".utf8), {
+            $0.isCreation = true
+            $0.newMode = FileMode(octal: $1)
+            return $0.newMode != nil
+        }),
+        // A deletion lists only the parents' modes: `deleted file mode a,b`.
+        (Array("deleted file mode ".utf8), { parser, value in
+            parser.isDeletion = true
+            parser.parentCountHint = value.count { $0 == UInt8(ascii: ",") } + 1
+            return true
+        }),
+    ]
+
+    /// Splits `a,b..c`: records the parent count and returns `c`, or nil
+    /// with no `..`.
+    private mutating func parseCombinedList(_ value: ArraySlice<UInt8>) -> ArraySlice<UInt8>? {
+        guard let dot = value.firstIndex(of: UInt8(ascii: ".")),
+              let result = value[dot...].dropping(prefix: Self.dotDot)
+        else { return nil }
+        parentCountHint = value[..<dot].count { $0 == UInt8(ascii: ",") } + 1
+        return result
+    }
+
+    /// A combined diff's header: the result side only.
+    private func combinedHeader(isBinary: Bool, parents: Int) -> FileHeader {
+        let change: Change = isCreation ? .added : isDeletion ? .deleted : .modified
+        return FileHeader(
+            format: .combined(parents: parents),
+            change: change,
+            newPath: isDeletion ? nil : Self.sidePaths(old: oldSide, new: newSide).new ?? gitLinePath,
+            newMode: isDeletion ? nil : newMode,
+            newObjectID: newObjectID,
+            isBinary: isBinary
+        )
+    }
+
+    /// `index <old>..<new>[ <mode>]`; each part that doesn't parse is
+    /// dropped on its own, and false returned. A combined diff's `a,b..c`
+    /// never gets here.
+    private mutating func parseIndex(_ value: ArraySlice<UInt8>) -> Bool {
+        // As in git, the first dot must start the "..".
+        guard let dot = value.firstIndex(of: UInt8(ascii: ".")),
+              let rest = value[dot...].dropping(prefix: Self.dotDot)
+        else { return false }
+        let newEnd = rest.firstIndex(of: UInt8(ascii: " ")) ?? rest.endIndex
+        let hasMode = newEnd < rest.endIndex
+        oldObjectID = ObjectID(hex: value[..<dot])
+        newObjectID = ObjectID(hex: rest[..<newEnd])
+        indexMode = hasMode ? FileMode(octal: rest[rest.index(after: newEnd)...]) : nil
+        return oldObjectID != nil && newObjectID != nil && (indexMode != nil || !hasMode)
+    }
+
+    private static let dotDot = Array("..".utf8)
+
+    /// A `similarity`/`dissimilarity index` value: leading digits, at most
+    /// 100. Like `git apply`, a larger value is ignored rather than clamped.
+    private static func percentage(of value: ArraySlice<UInt8>) -> Int? {
+        let digits = value.prefix { (UInt8(ascii: "0")...UInt8(ascii: "9")).contains($0) }
+        guard !digits.isEmpty else { return nil }
+        // Saturates past 100 instead of overflowing on an absurd digit run.
+        let number = digits.reduce(0) { partial, digit in
+            partial > 100 ? partial : partial * 10 + Int(digit - UInt8(ascii: "0"))
+        }
+        return number <= 100 ? number : nil
+    }
+
+    /// A `rename`/`copy` path: the rest of the line, unquoted, never
+    /// prefixed.
+    private static func path(of value: ArraySlice<UInt8>) -> DiffPath? {
+        let bytes = PathQuoting.unquoted(value)
+        return bytes.isEmpty ? nil : DiffPath(bytes)
+    }
+
+    /// A `---`/`+++` payload: up to a tab-appended trailer (a timestamp,
+    /// or git's marker after a path with spaces), then unquoted.
+    private static func side(of value: ArraySlice<UInt8>) -> Side {
+        let name = value.prefix { $0 != UInt8(ascii: "\t") }
+        let bytes = PathQuoting.unquoted(name)
+        return bytes == devNull ? .devNull : .path(bytes)
+    }
+
+    private static let devNull = Array("/dev/null".utf8)
 }
 
 extension ArraySlice<UInt8> {
