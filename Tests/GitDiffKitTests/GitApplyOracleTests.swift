@@ -75,8 +75,10 @@ struct GitApplyOracleTests {
     @Test("the fixture exercises every kind of header the oracles check")
     func coverage() throws {
         let headers = try [["-M", "-C", "--find-copies-harder"], ["-B", "--no-renames"]].flatMap { options in
-            try Self.withDiff(Variant(diffOptions: options)) { diff, _ in
-                FileHeaderScanner.files(in: try Array(Data(contentsOf: diff))).map(\.header)
+            try Self.withDiff(Variant(diffOptions: options)) { diff, repository in
+                let format = try FastImport.git(["rev-parse", "--show-object-format"], in: repository)
+                #expect(String(decoding: format, as: UTF8.self) == "sha1\n")
+                return FileHeaderScanner.files(in: try Array(Data(contentsOf: diff))).map(\.header)
             }
         }
         let kinds: [(String, (FileHeader) -> Bool)] = [

@@ -24,10 +24,15 @@ enum FastImport {
     private static let isolatedEnvironment = ["GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"]
     private static let newline = UInt8(ascii: "\n")
 
-    /// Creates a bare repository at `url` whose `main` branch has one commit
-    /// per element of `commits`, oldest first.
+    /// Creates a bare SHA-1 repository at `url` whose `main` branch has one
+    /// commit per element of `commits`, oldest first.
     static func makeRepository(at url: URL, commits: [[Command]]) throws {
-        _ = try Subprocess.output(of: ["git", "init", "--quiet", "--bare", url.path])
+        // SHA-1 whatever init.defaultObjectFormat or GIT_DEFAULT_HASH say:
+        // gitlinks name 40-digit commits.
+        _ = try Subprocess.output(
+            of: ["git", "init", "--quiet", "--bare", "--object-format=sha1", url.path],
+            environment: isolatedEnvironment
+        )
         let stream = url.appendingPathComponent("fast-import.stream")
         try Data(self.stream(commits)).write(to: stream)
         _ = try Subprocess.output(
