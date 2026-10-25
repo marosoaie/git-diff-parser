@@ -164,7 +164,11 @@ struct FileHeaderParser: Sendable {
     ]
 
     /// git's extended headers (`apply.c`'s table), plus `---`/`+++`.
-    private static let gitHandlers: [([UInt8], Handler)] = sideHandlers + [
+    private static let gitHandlers = sideHandlers + extendedHandlers
+
+    // Annotated on its own: Swift 6.2 can't type-check `+` against this
+    // literal in reasonable time, and the Linux CI image is 6.2.
+    private static let extendedHandlers: [([UInt8], Handler)] = [
         (Array("old mode ".utf8), { $0.oldMode = FileMode(octal: $1); return $0.oldMode != nil }),
         (Array("new mode ".utf8), { $0.newMode = FileMode(octal: $1); return $0.newMode != nil }),
         (Array("deleted file mode ".utf8), {
@@ -282,7 +286,10 @@ extension FileHeaderParser {
     /// A combined diff's headers, read for the result side only. Parents'
     /// values are lists (`index a,b..c`, `mode a,b..c`), which also give
     /// the parent count.
-    private static let combinedHandlers: [([UInt8], Handler)] = sideHandlers + [
+    private static let combinedHandlers = sideHandlers + combinedListHandlers
+
+    // Annotated on its own for Swift 6.2's type checker, as `extendedHandlers`.
+    private static let combinedListHandlers: [([UInt8], Handler)] = [
         (Array("index ".utf8), { parser, value in
             guard let result = parser.parseCombinedList(value) else { return false }
             parser.newObjectID = ObjectID(hex: result)
