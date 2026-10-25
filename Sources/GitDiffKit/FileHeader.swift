@@ -1,40 +1,52 @@
 /// Everything a diff says about one file before its hunks: what changed
 /// about it, its paths, modes, and object IDs.
 ///
-/// Built from the file's header block by `FileHeaderParser`. Paths follow
+/// Assembled from the file's header block. Paths follow
 /// a precedence, because `diff --git a/x b/y` is ambiguous when unquoted
 /// paths contain spaces: `rename`/`copy from`/`to` first, then
 /// `---`/`+++`, then the `diff --git` line, split where both names match.
-struct FileHeader: Sendable, Equatable {
+public struct FileHeader: Sendable, Equatable {
     /// Which kind of diff the file came from.
-    enum Format: Sendable, Equatable {
+    public enum Format: Sendable, Equatable {
         /// `diff --git`, with extended headers.
         case git
         /// `diff --cc` or `diff --combined`, a merge against `parents`
-        /// parents. Recognized and skipped in 0.2 (D9).
+        /// parents. Recognized and skipped in 0.2: only the result side of
+        /// the header is parsed (new path, mode, and object ID), and its
+        /// hunks produce no line events. For the lines a merge changed,
+        /// diff against its first parent (`--diff-merges=first-parent`).
         case combined(parents: Int)
         /// Plain `diff -u` output: `---`/`+++` with no extended headers.
         case unified
     }
 
-    var format: Format
-    var change: Change
+    /// Which kind of diff the file came from.
+    public var format: Format
+    /// What the diff does to the file's identity.
+    public var change: Change
     /// Nil for a creation, and when the header names no usable old path.
-    var oldPath: DiffPath?
+    public var oldPath: DiffPath?
     /// Nil for a deletion, and when the header names no usable new path.
-    var newPath: DiffPath?
-    var oldMode: FileMode?
-    var newMode: FileMode?
-    /// From the `index` line: abbreviated, or full with `--full-index` or
-    /// `--binary`. All zeros for the missing side of a creation or deletion.
-    var oldObjectID: ObjectID?
-    var newObjectID: ObjectID?
+    public var newPath: DiffPath?
+    /// The old side's mode: from `old mode`, `deleted file mode`, or the
+    /// `index` line's trailer; nil for a creation or when no line says.
+    public var oldMode: FileMode?
+    /// The new side's mode: from `new mode`, `new file mode`, or the
+    /// `index` line's trailer; nil for a deletion or when no line says.
+    public var newMode: FileMode?
+    /// The old side's object ID, from the `index` line: abbreviated, or
+    /// full with `--full-index` or `--binary`. All zeros for the missing
+    /// side of a creation or deletion.
+    public var oldObjectID: ObjectID?
+    /// The new side's object ID, from the `index` line.
+    public var newObjectID: ObjectID?
     /// The `dissimilarity index` percentage of a rewrite (`-B`).
-    var dissimilarity: Int?
+    public var dissimilarity: Int?
     /// Set by `Binary files … differ` and `GIT binary patch`.
-    var isBinary: Bool
+    public var isBinary: Bool
 
-    init(
+    /// Creates a header from its parts.
+    public init(
         format: Format,
         change: Change,
         oldPath: DiffPath? = nil,
@@ -60,7 +72,7 @@ struct FileHeader: Sendable, Equatable {
 
     /// Whether both modes are known and differ. A creation or deletion is
     /// never a mode change, though it has a mode on one side.
-    var modeChanged: Bool {
+    public var modeChanged: Bool {
         guard let oldMode, let newMode, change != .added, change != .deleted else { return false }
         return oldMode != newMode
     }

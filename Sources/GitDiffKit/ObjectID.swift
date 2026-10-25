@@ -3,9 +3,9 @@
 ///
 /// Up to 64 hex digits are stored inline as nibbles, so an ID never
 /// allocates. Hex is case-insensitive; `description` prints lowercase.
-struct ObjectID: Sendable, Hashable, CustomStringConvertible {
-    /// SHA-256's length; SHA-1 IDs have 40 digits.
-    static let maximumHexDigits = 64
+public struct ObjectID: Sendable, Hashable, CustomStringConvertible {
+    /// The most hex digits an ID can have: SHA-256's 64; SHA-1 IDs have 40.
+    public static let maximumHexDigits = 64
 
     // 64 nibbles in four words, most significant nibble first. Stored
     // properties rather than a tuple keep Hashable synthesized.
@@ -14,10 +14,10 @@ struct ObjectID: Sendable, Hashable, CustomStringConvertible {
     private var word2: UInt64 = 0
     private var word3: UInt64 = 0
     /// How many hex digits the header wrote.
-    private(set) var hexDigitCount: Int
+    public private(set) var hexDigitCount: Int
 
     /// Parses 1 to 64 hex digits; nil for anything else.
-    init?(hex: ArraySlice<UInt8>) {
+    public init?(hex: ArraySlice<UInt8>) {
         guard (1...Self.maximumHexDigits).contains(hex.count) else { return nil }
         let nibbles = hex.compactMap(Self.nibble)
         guard nibbles.count == hex.count else { return nil }
@@ -35,9 +35,10 @@ struct ObjectID: Sendable, Hashable, CustomStringConvertible {
 
     /// Whether every digit is zero, git's spelling of "no object" (the old
     /// side of a creation, the new side of a deletion).
-    var isZero: Bool { word0 | word1 | word2 | word3 == 0 }
+    public var isZero: Bool { word0 | word1 | word2 | word3 == 0 }
 
-    var description: String {
+    /// The ID in lowercase hex, as many digits as the header wrote.
+    public var description: String {
         let digits = Array("0123456789abcdef".utf8)
         return String(decoding: (0..<hexDigitCount).map { digits[Int(nibble(at: $0))] }, as: UTF8.self)
     }
