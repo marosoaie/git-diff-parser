@@ -5,7 +5,7 @@ the [README](README.md); for contribution conventions, [AGENTS.md](AGENTS.md).
 
 ## Streaming design
 
-The diff is parsed as a **byte stream**: callers feed chunks to `DiffParser`
+The diff is parsed as a **byte stream**: callers feed chunks to a parser
 (the tests read 4 MiB at a time), so the diff never has to fit in memory.
 Chunks may split lines — or multi-byte UTF-8 characters — anywhere; results
 are byte-for-byte identical for any chunking (tested down to 1-byte chunks).
@@ -13,8 +13,48 @@ Splitting happens on the `\n` byte, which is unambiguous in UTF-8.
 
 Hot paths operate on `ArraySlice<UInt8>`; `String` is only reached after a
 cheap byte-level prefix check. Hunk headers are parsed with a hand-rolled
-digit scanner using overflow-checked arithmetic, so corrupt input rejects the
-header instead of trapping.
+digit scanner that stops at 2⁴⁸, far above any real line number and far
+below overflow, so corrupt input rejects the header instead of trapping.
+
+### Events, then collectors
+
+Parsing is layered (see [docs/diff-model.md](docs/diff-model.md)):
+
+- `DiffEventParser<Consumer>` splits lines, reads headers and hunks, and
+  calls a `DiffEventConsumer`'s `mutating` methods: `beginFile`,
+  `beginHunk`, `line`, `noNewlineAtEndOfFile`, `binaryPatchLine`, `endFile`,
+  `unrecognizedLine`, and `damage`. Line content arrives as a `Span<UInt8>`
+  into the parser's buffers, valid only during the call, so the event layer
+  allocates nothing per line. The consumer is a generic parameter, so the
+  calls specialize and inline.
+- Collectors are consumers that keep what they need. `ChangedLines.Collector`
+  records added lines per file; `DiffParser` is a thin facade over it, kept
+  for 0.1's API.
+
+The parser's working memory is bounded whatever the input: the line carry
+buffer by the line cap (`ParsingOptions.maximumLineLength`), and the raw
+header block — kept verbatim for `beginFile`'s `rawHeader` — by 64 lines
+and 1 MiB. A header over either bound abandons its file.
+
+Damage never throws or traps. The parser repairs locally (a hunk cut short,
+a line without a marker, a header value that doesn't parse) or abandons the
+file (`headerTooLarge`, `tooManyParents`) and reports it as a `damage`
+event with a severity, the input line number, and the file's header as far
+as it was read. While a file is abandoned, further reports for it are
+suppressed. The library never logs; tools decide what to show.
+
+Combined diffs (`diff --cc`/`--combined`) are recognized and skipped: each
+file gets `beginFile` with format `.combined(parents:)` and `endFile`, while
+its hunks are only counted, against one budget per parent, so their content
+can't be mistaken for headers or another file's lines. An abandoned combined
+file (too many parents, or a header over its bounds) can't be counted, so
+everything up to the next `diff ` line is dropped instead.
+
+Plain `diff -N` output marks a missing file with a Unix-epoch timestamp;
+as `git apply` does, an epoch on the old side makes the file an addition
+and on the new side a deletion, in any zone, but only when the zone is
+written out (GNU diff writes it; Apple's diff doesn't, and git doesn't read
+those either).
 
 Changed lines are stored as sorted, merged ranges (`LineRangeSet`) rather
 than per-line sets, so memory scales with the number of *edits*, not lines:
@@ -28,9 +68,12 @@ returns autoreleased `Data`, so wrap each read iteration in `autoreleasepool`
 degrades to whole-file memory. Linux has no autorelease pool and no such
 trap.
 
-Individual lines are processed truncated to 1 MiB (uniformly, so results
-stay chunking-independent). This caps the carry buffer a pathological
-newline-free input could otherwise grow without limit.
+Individual lines are processed truncated to the line cap, 1 MiB by default
+(uniformly, so results stay chunking-independent), and flagged
+`isTruncated`. This caps the carry buffer a pathological newline-free input
+could otherwise grow without limit. A `\r` before the `\n` is stripped and
+flagged per line, the same for any chunking, so CRLF diffs parse like LF
+ones.
 
 ## Performance
 

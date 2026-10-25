@@ -77,6 +77,15 @@ public struct LineRangeSet: Sendable, Equatable {
         ranges.replaceSubrange(lo..<end, with: [newLower...newUpper])
     }
 
+    /// Adds every line of `other`.
+    mutating func formUnion(_ other: LineRangeSet) {
+        guard !isEmpty else {
+            self = other
+            return
+        }
+        other.ranges.forEach { insert($0) }
+    }
+
     /// Whether `next` starts strictly beyond `upperBound + 1`, without
     /// overflowing when `upperBound` is `Int.max`.
     private static func gapFollows(_ upperBound: Int, before next: Int) -> Bool {
@@ -118,6 +127,10 @@ public struct LineRangeSet: Sendable, Equatable {
 /// Keys are `String`s, decoded lossily from git's path bytes, and compare
 /// by Unicode canonical equivalence: the NFC and NFD spellings of one name,
 /// which git treats as two different paths, share a key.
+///
+/// Combined diffs of merges (`diff --cc`) are skipped and contribute no
+/// lines; for the lines a merge changed, diff it against its first parent
+/// (`--diff-merges=first-parent`) or use a three-dot diff.
 public struct ChangedLines: Sendable, Equatable {
     public private(set) var files: [String: LineRangeSet] = [:]
 
@@ -158,7 +171,10 @@ public struct ChangedLines: Sendable, Equatable {
         files[path]?.contains(line, tolerance: tolerance) ?? false
     }
 
-    mutating func add(line: Int, to path: String) {
-        files[path, default: LineRangeSet()].insert(line)
+    /// Adds a file's lines; a path seen before (a `git log -p` stream
+    /// touches files repeatedly) gets the union.
+    mutating func add(_ lines: LineRangeSet, to path: String) {
+        guard !lines.isEmpty else { return }
+        files[path, default: LineRangeSet()].formUnion(lines)
     }
 }

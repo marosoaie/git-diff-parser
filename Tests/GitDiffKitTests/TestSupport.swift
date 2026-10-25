@@ -8,14 +8,38 @@ extension ChangedLines {
     }
 }
 
-extension FileHeaderScanner {
-    /// The files of `bytes`, fed to a scanner in `chunkSize`-byte chunks.
-    static func files(in bytes: [UInt8], chunkSize: Int = .max) -> [File] {
-        var scanner = FileHeaderScanner()
-        stride(from: 0, to: bytes.count, by: chunkSize).forEach { start in
-            scanner.consume(bytes[start..<(start + min(chunkSize, bytes.count - start))])
+/// Records each file's header and how many lines its hunks add and
+/// delete: what `git apply --summary` and `--numstat` print, so the
+/// oracle tests check the event path.
+struct FileTally: DiffEventConsumer, Sendable {
+    /// One file of the diff.
+    struct File: Sendable, Equatable {
+        var header: FileHeader
+        var addedLines = 0
+        var deletedLines = 0
+    }
+
+    var files: [File] = []
+
+    mutating func beginFile(_ header: FileHeader, rawHeader: Span<UInt8>) {
+        files.append(File(header: header))
+    }
+
+    mutating func line(_ line: LineInfo, content: Span<UInt8>) {
+        switch line.kind {
+        case .addition: files[files.count - 1].addedLines += 1
+        case .deletion: files[files.count - 1].deletedLines += 1
+        case .context: break
         }
-        return scanner.finalize()
+    }
+
+    /// The files of `bytes`, fed to a parser in `chunkSize`-byte chunks.
+    static func files(in bytes: [UInt8], chunkSize: Int = .max) -> [File] {
+        var parser = DiffEventParser(consumer: FileTally())
+        stride(from: 0, to: bytes.count, by: chunkSize).forEach { start in
+            parser.consume(bytes[start..<(start + min(chunkSize, bytes.count - start))])
+        }
+        return parser.finalize().files
     }
 }
 

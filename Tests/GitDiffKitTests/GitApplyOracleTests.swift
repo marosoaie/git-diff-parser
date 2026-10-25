@@ -33,7 +33,7 @@ struct GitApplyOracleTests {
     @Test("headers and line counts match git apply --summary and --numstat -z", arguments: variants)
     func matchesGitApply(variant: Variant) throws {
         try Self.withDiff(variant) { diff, _ in
-            let files = FileHeaderScanner.files(in: try Array(Data(contentsOf: diff)))
+            let files = FileTally.files(in: try Array(Data(contentsOf: diff)))
             Oracle.expectEqualLines(GitApply.summary(of: files), try GitApply.summary(forDiffAt: diff))
             Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: diff))
         }
@@ -44,7 +44,7 @@ struct GitApplyOracleTests {
         try Self.withDiff(variant) { diff, repository in
             let base = try Self.tree("main~1", in: repository)
             let head = try Self.tree("main", in: repository)
-            let headers = FileHeaderScanner.files(in: try Array(Data(contentsOf: diff))).map(\.header)
+            let headers = FileTally.files(in: try Array(Data(contentsOf: diff))).map(\.header)
             #expect(headers.count > 20)
             headers.forEach { header in
                 Self.expect(
@@ -62,7 +62,7 @@ struct GitApplyOracleTests {
     @Test("--full-index writes 40-digit IDs, all zeros on the missing side")
     func fullIndex() throws {
         try Self.withDiff(Variant(diffOptions: ["--full-index", "-M"])) { diff, _ in
-            let headers = FileHeaderScanner.files(in: try Array(Data(contentsOf: diff))).map(\.header)
+            let headers = FileTally.files(in: try Array(Data(contentsOf: diff))).map(\.header)
             let ids = headers.flatMap { [$0.oldObjectID, $0.newObjectID].compactMap(\.self) }
             #expect(ids.count > 20)
             #expect(ids.allSatisfy { $0.hexDigitCount == 40 })
@@ -78,7 +78,7 @@ struct GitApplyOracleTests {
             try Self.withDiff(Variant(diffOptions: options)) { diff, repository in
                 let format = try FastImport.git(["rev-parse", "--show-object-format"], in: repository)
                 #expect(String(decoding: format, as: UTF8.self) == "sha1\n")
-                return FileHeaderScanner.files(in: try Array(Data(contentsOf: diff))).map(\.header)
+                return FileTally.files(in: try Array(Data(contentsOf: diff))).map(\.header)
             }
         }
         let kinds: [(String, (FileHeader) -> Bool)] = [
@@ -104,9 +104,9 @@ struct GitApplyOracleTests {
     func chunkInvariance(variant: Variant) throws {
         try Self.withDiff(variant) { diff, _ in
             let bytes = try Array(Data(contentsOf: diff))
-            let whole = FileHeaderScanner.files(in: bytes)
+            let whole = FileTally.files(in: bytes)
             [1, 2, 5, 13].forEach { chunkSize in
-                #expect(FileHeaderScanner.files(in: bytes, chunkSize: chunkSize) == whole, "chunk size \(chunkSize)")
+                #expect(FileTally.files(in: bytes, chunkSize: chunkSize) == whole, "chunk size \(chunkSize)")
             }
         }
     }

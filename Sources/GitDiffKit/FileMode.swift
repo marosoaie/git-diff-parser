@@ -2,18 +2,23 @@
 ///
 /// The raw value is kept as written, not canonicalized the way `git apply`
 /// does it, so a header renders back unchanged.
-struct FileMode: RawRepresentable, Sendable, Hashable {
-    var rawValue: UInt32
+public struct FileMode: RawRepresentable, Sendable, Hashable {
+    /// The mode's bits, such as `0o100644`.
+    public var rawValue: UInt32
 
-    init(rawValue: UInt32) {
+    /// Creates a mode from its bits.
+    public init(rawValue: UInt32) {
         self.rawValue = rawValue
     }
 
-    static let regular = FileMode(rawValue: 0o100644)
-    static let executable = FileMode(rawValue: 0o100755)
-    static let symlink = FileMode(rawValue: 0o120000)
-    /// A submodule.
-    static let gitlink = FileMode(rawValue: 0o160000)
+    /// A regular file, `100644`.
+    public static let regular = FileMode(rawValue: 0o100644)
+    /// An executable file, `100755`.
+    public static let executable = FileMode(rawValue: 0o100755)
+    /// A symbolic link, `120000`.
+    public static let symlink = FileMode(rawValue: 0o120000)
+    /// A submodule, `160000`.
+    public static let gitlink = FileMode(rawValue: 0o160000)
 
     /// Parses an octal mode that runs to the end of `text` or to a space
     /// or tab; nil for anything else, including a value over 32 bits.

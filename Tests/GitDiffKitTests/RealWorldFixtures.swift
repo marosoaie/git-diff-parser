@@ -161,6 +161,6 @@ enum GitNumstat {
     /// the plain new-side path for renames (verified empirically), so the
     /// only normalization needed is undoing git's C-style path quoting.
     private static func normalize(_ rawPath: String) -> String {
-        rawPath.hasPrefix("\"") ? DiffParser.unquote(rawPath) : rawPath
+        String(decoding: PathQuoting.unquoted(Array(rawPath.utf8)[...]), as: UTF8.self)
     }
 }

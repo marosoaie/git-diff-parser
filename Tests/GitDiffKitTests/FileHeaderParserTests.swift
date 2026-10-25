@@ -3,10 +3,8 @@ import Testing
 
 @Suite("File headers")
 struct FileHeaderParserTests {
-    static func scan(_ diff: String) -> [FileHeaderScanner.File] {
-        var scanner = FileHeaderScanner()
-        scanner.consume(Array(diff.utf8)[...])
-        return scanner.finalize()
+    static func scan(_ diff: String) -> [FileTally.File] {
+        FileTally.files(in: Array(diff.utf8))
     }
 
     static func path(_ text: String) -> DiffPath {
@@ -165,6 +163,13 @@ struct FileHeaderParserTests {
         #expect(bytes == [7, 8, 12, 10, 13, 9, 11, 34, 92, 65, 0xC3, 0xA9, 0xFF, UInt8(ascii: "q")])
         #expect(PathQuoting.unquoted(Array("plain path".utf8)[...]) == Array("plain path".utf8))
         // ChangedLines keys come from the same bytes, decoded lossily.
-        #expect(DiffParser.unquote(quoted) == String(decoding: bytes, as: UTF8.self))
+        let diff = """
+            --- /dev/null
+            +++ \(quoted)
+            @@ -0,0 +1 @@
+            +x
+
+            """
+        #expect(ChangedLines(diff: diff).lineSets == [String(decoding: bytes, as: UTF8.self): [1]])
     }
 }

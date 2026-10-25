@@ -16,10 +16,13 @@ struct MalformedInputTests {
             +z
 
             """
-        // No usable path, so the added line has nowhere to be recorded.
-        #expect(ChangedLines(diff: diff).isEmpty)
-        #expect(DiffParser.parseFileHeaderPath("") == nil)
-        #expect(DiffParser.parseFileHeaderPath("\t2024-01-01") == nil)
+        // The +++ path is unusable, so the diff --git line's name stands in.
+        #expect(ChangedLines(diff: diff).lineSets == ["x": [1]])
+        // Without one, the added line has nowhere to be recorded: the +++
+        // line is empty, or all trailer.
+        ["", "\t2024-01-01"].forEach { payload in
+            #expect(ChangedLines(diff: "--- /dev/null\n+++ \(payload)\n@@ -0,0 +1 @@\n+z\n").isEmpty)
+        }
     }
 
     @Test("a diff truncated mid-hunk neither invents lines nor loses the next file")
@@ -49,7 +52,7 @@ struct MalformedInputTests {
     @Test("absurd numbers in a hunk header reject the header instead of trapping")
     func hunkHeaderOverflow() {
         let header = "@@ -99999999999999999999999999,1 +1,1 @@"
-        #expect(DiffParser.parseHunkHeader(ArraySlice(header.utf8)) == nil)
+        #expect(HunkHeader.parse(ArraySlice(header.utf8)) == nil)
         // And a whole parse containing such a header must not trap either.
         let diff = """
             diff --git a/x b/x
@@ -85,17 +88,17 @@ struct MalformedInputTests {
 
             """
         #expect(ChangedLines(diff: diff).isEmpty)
-        #expect(DiffParser.parseHunkHeader(ArraySlice("@@ -1 +\(DiffParser.maxLineNumber + 1),1 @@".utf8)) == nil)
+        #expect(HunkHeader.parse(ArraySlice("@@ -1 +\(HunkHeader.maxLineNumber + 1),1 @@".utf8)) == nil)
         // The largest accepted value must survive a full hunk without traps.
         let boundary = """
             diff --git a/x b/x
             --- a/x
             +++ b/x
-            @@ -1 +\(DiffParser.maxLineNumber) @@
+            @@ -1 +\(HunkHeader.maxLineNumber) @@
             +x
 
             """
-        #expect(ChangedLines(diff: boundary).lineSets == ["x": [DiffParser.maxLineNumber]])
+        #expect(ChangedLines(diff: boundary).lineSets == ["x": [HunkHeader.maxLineNumber]])
     }
 
     @Test("a deletion-only hunk cannot invent added lines")
@@ -114,10 +117,35 @@ struct MalformedInputTests {
         #expect(ChangedLines(diff: diff).isEmpty)
     }
 
-    @Test("a '+' beyond the declared new-side count re-parses as a header")
+    @Test("a line beyond the declared counts re-parses as a header")
     func malformedCountRecoversNextFile() {
-        // The new side is exhausted after "+y"; the following "+++ b/B.swift"
+        // The old side is exhausted after "-x"; the following "--- a/B.swift"
         // must be recognized as a header, not miscounted as content.
+        let diff = """
+            diff --git a/A b/A
+            --- a/A
+            +++ b/A
+            @@ -1,1 +1,2 @@
+            -x
+            +y
+            --- a/B.swift
+            +++ b/B.swift
+            @@ -1 +1,2 @@
+             x
+            +z
+
+            """
+        #expect(ChangedLines(diff: diff).lineSets == [
+            "A": [1],
+            "B.swift": [2],
+        ])
+    }
+
+    @Test("a lone '+++' after an exhausted hunk is neither content nor a header")
+    func loneNewSideAfterHunk() {
+        // The new side is exhausted after "+y", so "+++ b/B.swift" isn't
+        // counted as content; without a "---" it starts no file, as in
+        // `git apply`, and the next hunk stays in A.
         let diff = """
             diff --git a/A b/A
             --- a/A
@@ -131,9 +159,6 @@ struct MalformedInputTests {
             +z
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == [
-            "A": [1],
-            "B.swift": [2],
-        ])
+        #expect(ChangedLines(diff: diff).lineSets == ["A": [1, 2]])
     }
 }

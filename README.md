@@ -52,6 +52,21 @@ changes.contains(line: 42, in: "Sources/App/Foo.swift")  // binary search
 changes.contains(line: 42, in: "Sources/App/Foo.swift", tolerance: 2)
 ```
 
+For anything beyond changed lines, implement a `DiffEventConsumer` — every
+method has a default, so take only the events you need — and drive it with
+a `DiffEventParser`:
+
+```swift
+struct DamageLog: DiffEventConsumer {
+    var reports: [DamageReport] = []
+    mutating func damage(_ report: DamageReport) { reports.append(report) }
+}
+
+var events = DiffEventParser(consumer: DamageLog())
+events.consume(diffBytes)
+let reports = events.finalize().reports   // where the input was damaged
+```
+
 Get a pull request's own changes with a three-dot diff against the merge
 base (`git diff origin/main...HEAD`), or download it from GitHub
 (`https://github.com/OWNER/REPO/pull/N.diff`).

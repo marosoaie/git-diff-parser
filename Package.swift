@@ -11,6 +11,9 @@ let swiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "git-diff-parser",
+    // The 26 releases make `Span`, `Array.span`, and `UTF8Span` available
+    // in the OS; Linux has no floor.
+    platforms: [.macOS(.v26), .iOS(.v26), .tvOS(.v26), .watchOS(.v26), .visionOS(.v26)],
     products: [
         .library(name: "GitDiffKit", targets: ["GitDiffKit"]),
     ],

@@ -108,6 +108,10 @@ iteration), never narration of the next line.
   ("a diff truncated mid-hunk neither invents lines nor loses the next
   file"); parameterized tests via `arguments:`; traits for `.serialized`,
   `.timeLimit`, `.enabled(if:)`.
+- Keep test arguments short; build big inputs inside the test from a
+  small enum or count. swift-testing prints every argument in full, and
+  GitHub's runner stalls on a megabyte-long log line, which hangs the
+  whole run.
 - Validate against **oracles**, not hand-computed expectations, where one
   exists: per-file changed-line counts are cross-checked against
   `git apply --numstat` on real diffs (Linux kernel, redis,
