@@ -32,7 +32,7 @@ jobs:
         run: swift build --build-tests -Xswiftc -warnings-as-errors
 
       - name: Run tests
-        run: swift test --skip-build
+        run: bash .github/hang-watchdog.sh 300
 
       - name: SwiftLint
         if: ${{ !cancelled() }}
@@ -42,7 +42,10 @@ jobs:
 
   linux-tests:
     runs-on: ubuntu-latest
-    container: swift:6.2
+    container:
+      image: swift:6.2
+      # TEMPORARY: lets the hang watchdog attach lldb to the stuck tests.
+      options: --cap-add=SYS_PTRACE --security-opt seccomp=unconfined
     timeout-minutes: 30
     steps:
       # Before checkout, so actions/checkout makes a real clone. The numstat
@@ -74,4 +77,6 @@ jobs:
         run: swift build --build-tests -Xswiftc -warnings-as-errors
 
       - name: Run tests
-        run: swift test --skip-build
+        run: |
+          command -v ps >/dev/null || { apt-get update && apt-get install -y --no-install-recommends procps; }
+          bash .github/hang-watchdog.sh 300
