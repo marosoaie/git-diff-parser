@@ -53,16 +53,18 @@ enum FastImport {
         }
     }
 
+    // Parts in a typed list, not a `+` chain: Swift 6.2 took seconds to
+    // type-check the chain, close to its give-up limit.
     private static func line(_ command: Command) -> [UInt8] {
-        switch command {
+        let parts: [[UInt8]] = switch command {
         case let .file(path, content, mode):
-            Array("M \(mode) inline ".utf8) + quoted(path)
-                + Array("\ndata \(content.count)\n".utf8) + content + [newline]
+            [Array("M \(mode) inline ".utf8), quoted(path), Array("\ndata \(content.count)\n".utf8), content]
         case let .gitlink(path, commit):
-            Array("M 160000 \(commit) ".utf8) + quoted(path) + [newline]
+            [Array("M 160000 \(commit) ".utf8), quoted(path)]
         case let .delete(path):
-            Array("D ".utf8) + quoted(path) + [newline]
+            [Array("D ".utf8), quoted(path)]
         }
+        return parts.flatMap(\.self) + [newline]
     }
 
     /// fast-import's C-style quoting, which takes every byte but these

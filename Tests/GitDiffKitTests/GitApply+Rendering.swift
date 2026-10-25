@@ -63,11 +63,19 @@ extension GitApply {
         let newDirectories = new.split(separator: slash, omittingEmptySubsequences: false).dropLast()
         let shared = zip(oldDirectories, newDirectories).prefix { $0 == $1 }.count
         let prefixLength = oldDirectories.prefix(shared).reduce(0) { $0 + $1.count + 1 }
-        let names = shared == 0
-            ? old + text(" => ") + new
-            : old.prefix(prefixLength) + text("{") + old.dropFirst(prefixLength) + text(" => ")
-                + new.dropFirst(prefixLength) + text("}")
-        return text(" \(verb) ") + names + text(" (\(score)%)\n")
+        // Parts in a typed list, not a `+` chain over arrays and slices:
+        // Swift 6.2 took seconds to type-check the chain, close to its
+        // give-up limit.
+        let names: [[UInt8]] = if shared == 0 {
+            [old, text(" => "), new]
+        } else {
+            [
+                Array(old.prefix(prefixLength)), text("{"), Array(old.dropFirst(prefixLength)),
+                text(" => "), Array(new.dropFirst(prefixLength)), text("}"),
+            ]
+        }
+        let parts: [[UInt8]] = [text(" \(verb) ")] + names + [text(" (\(score)%)\n")]
+        return parts.flatMap(\.self)
     }
 
     /// apply.c's `canon_mode`, which git applies to every mode it parses:

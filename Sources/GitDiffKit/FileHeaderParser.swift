@@ -119,7 +119,11 @@ struct FileHeaderParser: Sendable {
     ]
 
     /// git's extended headers (`apply.c`'s table), plus `---`/`+++`.
-    private static let gitHandlers: [([UInt8], Handler)] = sideHandlers + [
+    private static let gitHandlers = sideHandlers + extendedHandlers
+
+    // Annotated on its own: Swift 6.2 can't type-check `+` against this
+    // literal in reasonable time, and the Linux CI image is 6.2.
+    private static let extendedHandlers: [([UInt8], Handler)] = [
         (Array("old mode ".utf8), { $0.oldMode = FileMode(octal: $1) }),
         (Array("new mode ".utf8), { $0.newMode = FileMode(octal: $1) }),
         (Array("deleted file mode ".utf8), { $0.isDeletion = true; $0.oldMode = FileMode(octal: $1) }),
