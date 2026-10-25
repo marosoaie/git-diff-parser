@@ -6,17 +6,23 @@ enum Subprocess {
     /// error if it exits nonzero.
     ///
     /// Runs in `directory` when given, with `environment` added to the
-    /// test process's own.
+    /// test process's own, reading standard input from `input` when given.
     static func output(
         of arguments: [String],
         in directory: URL? = nil,
-        environment: [String: String] = [:]
+        environment: [String: String] = [:],
+        input: URL? = nil
     ) throws -> Data {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = arguments
         process.currentDirectoryURL = directory
         process.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
+        let stdin = try input.map(FileHandle.init(forReadingFrom:))
+        defer { try? stdin?.close() }
+        if let stdin {
+            process.standardInput = stdin
+        }
         let stdout = Pipe()
         process.standardOutput = stdout
         // A file rather than a pipe: an undrained stderr pipe can fill up and

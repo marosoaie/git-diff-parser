@@ -297,8 +297,8 @@ the `index` line (`index 587be6b..5f5521f 100644`); the parser sets
 Change kind, mode change, and binary are orthogonal — a rename can also
 change content and mode — so they are separate properties rather than one
 enum. A type change (file ↔ symlink) needs no case of its own: git emits it
-as a deletion followed by a creation of the same path (to confirm with a
-fixture in 2.3).
+as a deletion followed by a creation of the same path (confirmed in 2.3 on
+a fast-import fixture, where `git apply --summary` reads it the same way).
 
 **Paths.** Where a path comes from matters, because `diff --git a/x b/y` is
 ambiguous when paths contain spaces and aren't quoted:

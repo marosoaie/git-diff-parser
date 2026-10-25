@@ -145,15 +145,7 @@ enum RealWorldFixtureStore {
 /// patch parser, `git apply --numstat`.
 enum GitNumstat {
     static func addedLineCounts(forDiffAt url: URL) throws -> [String: Int] {
-        // Inside a work tree, git apply ignores every path outside the
-        // current subdirectory. Run next to the diff and stop git from
-        // discovering an enclosing repository, wherever the cache lives.
-        let directory = url.deletingLastPathComponent()
-        let output = try Subprocess.output(
-            of: ["git", "apply", "--numstat", url.path],
-            in: directory,
-            environment: ["GIT_CEILING_DIRECTORIES": directory.deletingLastPathComponent().path]
-        )
+        let output = try GitApply.output(of: ["--numstat"], forDiffAt: url)
 
         var counts: [String: Int] = [:]
         for line in String(decoding: output, as: UTF8.self).split(separator: "\n") {
