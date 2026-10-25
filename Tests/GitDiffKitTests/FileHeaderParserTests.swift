@@ -86,4 +86,85 @@ struct FileHeaderParserTests {
         ])
         #expect(files.map(\.header.modeChanged) == [true, false])
     }
+
+    @Test(
+        "object IDs take 1 to 64 hex digits in either case and print lowercase",
+        arguments: [
+            ("abc1234", "abc1234"),
+            ("ABCDEF0", "abcdef0"),
+            (String(repeating: "f", count: 40), String(repeating: "f", count: 40)),
+            (String(repeating: "0123456789abcdef", count: 4), String(repeating: "0123456789abcdef", count: 4)),
+        ]
+    )
+    func objectIDs(hex: String, description: String) {
+        let id = ObjectID(hex: Array(hex.utf8)[...])
+        #expect(id?.description == description)
+        #expect(id?.hexDigitCount == hex.count)
+        #expect(id?.isZero == false)
+    }
+
+    @Test("an object ID rejects no digits, too many, and non-hex bytes", arguments: [
+        "", String(repeating: "a", count: 65), "abcg", "12 4", "-1",
+    ])
+    func invalidObjectIDs(hex: String) {
+        #expect(ObjectID(hex: Array(hex.utf8)[...]) == nil)
+    }
+
+    @Test("an all-zero object ID of any length is git's missing object")
+    func zeroObjectID() {
+        #expect(ObjectID(hex: Array("0000000".utf8)[...])?.isZero == true)
+        #expect(ObjectID(hex: Array(String(repeating: "0", count: 64).utf8)[...])?.isZero == true)
+        #expect(ObjectID(hex: Array("0000001".utf8)[...]) != ObjectID(hex: Array("00000010".utf8)[...]))
+    }
+
+    @Test("git's original 'rename old'/'rename new' spellings and a rewrite's dissimilarity parse")
+    func oldRenameSpellingsAndDissimilarity() {
+        let headers = Self.scan("""
+            diff --git a/one b/two
+            similarity index 75%
+            rename old one
+            rename new two
+            diff --git a/three b/three
+            dissimilarity index 88%
+
+            """).map(\.header)
+        #expect(headers.map(\.change) == [.renamed(similarity: 75), .modified])
+        #expect(headers.map(\.oldPath) == [Self.path("one"), Self.path("three")])
+        #expect(headers.map(\.newPath) == [Self.path("two"), Self.path("three")])
+        #expect(headers.map(\.dissimilarity) == [nil, 88])
+    }
+
+    @Test(
+        "prefixes are stripped only when the two sides use different letters",
+        arguments: [
+            ("c/x", "i/x", "x", "x"),          // diff.mnemonicPrefix
+            ("w/d/x", "o/d/x", "d/x", "d/x"),
+            ("b/x", "a/x", "x", "x"),          // -R swaps a/ and b/
+            ("b/x", "b/x", "b/x", "b/x"),      // the same letter twice is a directory
+            ("a/x", "x", "a/x", "x"),          // so is a letter facing a bare path
+        ]
+    )
+    func prefixes(old: String, new: String, oldPath: String, newPath: String) {
+        let header = Self.scan("""
+            diff --git \(old) \(new)
+            --- \(old)
+            +++ \(new)
+            @@ -1 +1 @@
+            -a
+            +b
+
+            """).first?.header
+        #expect(header?.oldPath == Self.path(oldPath))
+        #expect(header?.newPath == Self.path(newPath))
+    }
+
+    @Test("unquoting undoes every C escape git writes and never rejects a byte")
+    func unquoting() {
+        let quoted = #""\a\b\f\n\r\t\v\"\\\101\303\251\777\q""#
+        let bytes = PathQuoting.unquoted(Array(quoted.utf8)[...])
+        #expect(bytes == [7, 8, 12, 10, 13, 9, 11, 34, 92, 65, 0xC3, 0xA9, 0xFF, UInt8(ascii: "q")])
+        #expect(PathQuoting.unquoted(Array("plain path".utf8)[...]) == Array("plain path".utf8))
+        // ChangedLines keys come from the same bytes, decoded lossily.
+        #expect(DiffParser.unquote(quoted) == String(decoding: bytes, as: UTF8.self))
+    }
 }
