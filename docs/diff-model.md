@@ -180,7 +180,7 @@ public protocol DiffEventConsumer {
     mutating func endFile()
     /// A line that is neither header nor hunk content: a commit message, mail headers, `Only in …`, junk.
     mutating func unrecognizedLine(_ content: Span<UInt8>, endsWithCarriageReturn: Bool)
-    /// Input was damaged: `.info` for a local recovery, `.error` for an abandoned file (Q6, to confirm).
+    /// Input was damaged: `.info` for a local recovery, `.error` for an abandoned file (Q6).
     mutating func damage(_ report: DamageReport)
 }
 // Empty default implementations, so a collector implements only what it needs.
@@ -620,7 +620,7 @@ it:
   raw header.
 - `diff --git` splitting, quoted-path unquoting, and `rename from/to`
   parsing degrade to "unknown path" rather than trapping.
-- Damage is reported, never logged (Q6, reading to confirm): a `damage`
+- Damage is reported, never logged (Q6): a `damage`
   event, a no-op by default, carries a `DamageReport` with the file (its
   header so far, if any), the input line number, the reason, and a
   severity — `.info` for a local recovery (a header line ignored, a hunk
@@ -654,12 +654,12 @@ it affects; the sections above already reflect the answers.
    skipped safely in 0.2, with no line events, as proposed. The skip is
    documented at the declarations and in the user docs (2.8).
 6. **Damage reporting: yes, report it** ("log info/errors on damaged
-   files"). **Reading still to be confirmed with the maintainer:** the
-   library stays dependency-free and never logs by itself. A `damage`
-   event (no-op by default) carries the file, the input line, the reason,
-   and a severity: `.info` for a local recovery, `.error` for an abandoned
-   file; tools such as `steward` log it. Logging inside the library would
-   need swift-log, its first dependency.
+   files"), as an event; the maintainer confirmed this reading the same
+   day. The library emits a `damage` event (no-op by default) carrying
+   the file, the input line, the reason, and a severity: `.info` for a
+   local recovery, `.error` for an abandoned file. Tools such as
+   `steward` log it. The library never logs by itself and stays
+   dependency-free, so no swift-log.
 7. **Platforms: the modern `Span` API, even with higher floors.**
    `platforms:` becomes macOS, iOS, tvOS, watchOS, and visionOS 26, so
    `Array.span` and `UTF8Span` are usable; Linux is unaffected. It lands
