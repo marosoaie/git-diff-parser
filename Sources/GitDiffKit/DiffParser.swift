@@ -13,7 +13,7 @@
 /// The library doesn't depend on Foundation; feed `Data` read from a
 /// `FileHandle` as `[UInt8](data)`.
 public struct DiffParser: ByteLineConsumer, Sendable {
-    var partialLine: [UInt8] = []
+    var carry = LineCarry(maximumLength: 1 << 20)
 
     private var changes = ChangedLines()
 
@@ -64,7 +64,11 @@ public struct DiffParser: ByteLineConsumer, Sendable {
     // single-letter prefix on the "+++ " side is git's or a real directory.
     private var oldSideHeader: HeaderPathPrefix = .unknown
 
-    mutating func processLine(_ line: ArraySlice<UInt8>) {
+    mutating func processLine(_ line: RawLine) {
+        processLine(line.bytes)
+    }
+
+    private mutating func processLine(_ line: ArraySlice<UInt8>) {
         if remainingOld > 0 || remainingNew > 0 {
             processHunkContentLine(line)
             return

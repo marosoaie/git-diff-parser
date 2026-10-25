@@ -18,7 +18,7 @@ struct FileHeaderScanner: ByteLineConsumer, Sendable {
         var deletedLines = 0
     }
 
-    var partialLine: [UInt8] = []
+    var carry = LineCarry(maximumLength: 1 << 20)
     private var files: [File] = []
     /// The open header block, if any.
     private var header: FileHeaderParser?
@@ -54,7 +54,11 @@ struct FileHeaderScanner: ByteLineConsumer, Sendable {
     private static let filesPrefix = Array("Files ".utf8)
     private static let binaryPatchMarker = Array("GIT binary patch".utf8)
 
-    mutating func processLine(_ line: ArraySlice<UInt8>) {
+    mutating func processLine(_ line: RawLine) {
+        processLine(line.bytes)
+    }
+
+    private mutating func processLine(_ line: ArraySlice<UInt8>) {
         if remainingOld > 0 || remainingNew > 0 {
             return processHunkLine(line)
         }
