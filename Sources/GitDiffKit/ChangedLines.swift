@@ -114,6 +114,10 @@ public struct LineRangeSet: Sendable, Equatable {
 /// header), relative to the repository root. Deleted files never appear,
 /// and only added lines are recorded: git represents a modified line as a
 /// removal plus an addition, so additions cover both cases.
+///
+/// Keys are `String`s, decoded lossily from git's path bytes, and compare
+/// by Unicode canonical equivalence: the NFC and NFD spellings of one name,
+/// which git treats as two different paths, share a key.
 public struct ChangedLines: Sendable, Equatable {
     public private(set) var files: [String: LineRangeSet] = [:]
 

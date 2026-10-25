@@ -267,59 +267,13 @@ public struct DiffParser: ByteLineConsumer, Sendable {
 
     /// Undoes C-style quoting git applies to paths containing special
     /// characters (spaces are not quoted, but e.g. UTF-8 and control
-    /// characters are): `"a\303\244.swift"` → `aä.swift`.
-    ///
-    /// Deliberately a single branchy state machine (complexity above the
-    /// lint threshold): splitting the escape table across helpers would
-    /// obscure it.
-    static func unquote(_ quoted: String) -> String { // swiftlint:disable:this cyclomatic_complexity
+    /// characters are): `"a\303\244.swift"` → `aä.swift`. Decodes the
+    /// path's bytes lossily; `PathQuoting` keeps them exact.
+    static func unquote(_ quoted: String) -> String {
         guard quoted.hasPrefix("\""), quoted.hasSuffix("\""), quoted.count >= 2 else {
             return quoted
         }
-        var bytes: [UInt8] = []
-        var iterator = quoted.dropFirst().dropLast().utf8.makeIterator()
-        var pending: [UInt8] = []
-
-        func next() -> UInt8? {
-            if pending.isEmpty { return iterator.next() }
-            return pending.removeFirst()
-        }
-
-        while let byte = next() {
-            guard byte == UInt8(ascii: "\\") else {
-                bytes.append(byte)
-                continue
-            }
-            guard let escaped = next() else { break }
-            switch escaped {
-            case UInt8(ascii: "a"): bytes.append(0x07)
-            case UInt8(ascii: "b"): bytes.append(0x08)
-            case UInt8(ascii: "f"): bytes.append(0x0C)
-            case UInt8(ascii: "n"): bytes.append(0x0A)
-            case UInt8(ascii: "r"): bytes.append(0x0D)
-            case UInt8(ascii: "t"): bytes.append(0x09)
-            case UInt8(ascii: "v"): bytes.append(0x0B)
-            case UInt8(ascii: "\""): bytes.append(UInt8(ascii: "\""))
-            case UInt8(ascii: "\\"): bytes.append(UInt8(ascii: "\\"))
-            case UInt8(ascii: "0")...UInt8(ascii: "7"):
-                // Up to three octal digits.
-                var value = UInt32(escaped - UInt8(ascii: "0"))
-                var digits = 1
-                while digits < 3, let digit = next() {
-                    if (UInt8(ascii: "0")...UInt8(ascii: "7")).contains(digit) {
-                        value = value * 8 + UInt32(digit - UInt8(ascii: "0"))
-                        digits += 1
-                    } else {
-                        pending.append(digit)
-                        break
-                    }
-                }
-                bytes.append(UInt8(truncatingIfNeeded: value))
-            default:
-                bytes.append(escaped)
-            }
-        }
-        return String(decoding: bytes, as: UTF8.self)
+        return String(decoding: PathQuoting.unescaped(Array(quoted.utf8).dropFirst().dropLast()), as: UTF8.self)
     }
 }
 
