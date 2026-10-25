@@ -37,6 +37,37 @@ struct RealWorldDiffTests {
         )
     }
 
+    @Test(
+        "headers and both numstat columns match git apply --summary and --numstat -z",
+        arguments: RealWorldFixture.allCases
+    )
+    func matchesGitApply(fixture: RealWorldFixture) async throws {
+        let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
+        var scanner = FileHeaderScanner()
+        try Self.forEachChunk(of: diffURL) { scanner.consume($0) }
+        let files = scanner.finalize()
+
+        let summary = try GitApply.summary(forDiffAt: diffURL)
+        #expect(!summary.isEmpty)
+        Oracle.expectEqualLines(GitApply.summary(of: files), summary)
+        Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: diffURL))
+    }
+
+    @Test(
+        "headers and line counts are the same for any chunking",
+        arguments: [RealWorldFixture.redis, .swiftArgumentParser]
+    )
+    func chunkInvariance(fixture: RealWorldFixture) async throws {
+        let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
+        let bytes = try Array(Data(contentsOf: diffURL))
+        let whole = FileHeaderScanner.files(in: bytes)
+        // One-byte chunks take seconds per megabyte in debug builds.
+        let chunkSizes = [4093, (1 << 20) + 7] + (bytes.count < 1 << 20 ? [1] : [])
+        chunkSizes.forEach { chunkSize in
+            #expect(FileHeaderScanner.files(in: bytes, chunkSize: chunkSize) == whole, "chunk size \(chunkSize)")
+        }
+    }
+
     @Test("the kernel 6.6→6.7 release diff parses to its known totals")
     func kernelTotals() async throws {
         let diffURL = try await RealWorldFixtureStore.localDiffURL(for: .linuxKernel)
@@ -51,12 +82,17 @@ struct RealWorldDiffTests {
     /// the same way the CLI does.
     static func parseStreaming(contentsOf url: URL) throws -> ChangedLines {
         var parser = DiffParser()
+        try forEachChunk(of: url) { parser.consume($0) }
+        return parser.finalize()
+    }
+
+    /// Reads the file at `url` in 4 MiB chunks, as the CLI does.
+    static func forEachChunk(of url: URL, _ body: (ArraySlice<UInt8>) -> Void) throws {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
         while let chunk = try readChunk(from: handle), !chunk.isEmpty {
-            parser.consume([UInt8](chunk))
+            body([UInt8](chunk)[...])
         }
-        return parser.finalize()
     }
 
     private static func readChunk(from handle: FileHandle) throws -> Data? {
