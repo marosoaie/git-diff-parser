@@ -16,8 +16,10 @@ public struct DamageReport: Sendable, Equatable {
         /// whitespace stripping turns a blank context line into one, and
         /// `git apply` accepts it.
         case missingLineMarker
-        /// A `\ No newline at end of file` that doesn't follow a hunk line;
-        /// dropped.
+        /// A `\ No newline at end of file` that doesn't follow a hunk line,
+        /// such as a duplicate or one before a file's first hunk; dropped.
+        /// Outside any file (before the first one), a `\ ` line is text,
+        /// passed on as an unrecognized line.
         case misplacedNoNewlineMarker
         /// A header line whose value didn't parse (a mode that isn't octal,
         /// a similarity over 100, a malformed `index` line); the value is
@@ -33,7 +35,8 @@ public struct DamageReport: Sendable, Equatable {
         case malformedBinaryPatch
         /// A header block over the parser's bounds (64 lines, 1 MiB, or a
         /// line over the line cap). The file is abandoned: no `beginFile`,
-        /// and its lines are dropped until the next file starts.
+        /// and its lines are dropped until the next file starts (for a
+        /// combined diff, up to the next `diff ` line).
         case headerTooLarge
         /// A combined diff against more than 64 parents. The file is
         /// abandoned, and everything up to the next `diff ` line dropped.

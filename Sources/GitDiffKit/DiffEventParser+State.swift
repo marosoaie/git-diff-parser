@@ -11,6 +11,9 @@ enum DiffSyntax {
     static let binaryPatchMarker = Array("GIT binary patch".utf8)
     static let literalPrefix = Array("literal ".utf8)
     static let deltaPrefix = Array("delta ".utf8)
+    /// The part of `\ No newline at end of file` that `git apply` checks;
+    /// the rest depends on the locale.
+    static let noNewlinePrefix = Array("\\ ".utf8)
 
     /// A header block past either bound abandons its file. Fixed rather
     /// than tied to the line cap, which a caller may raise to 64 MiB.
@@ -54,8 +57,9 @@ enum FileState: Sendable {
     /// A damaged file: hunks are counted, so their content can't start a
     /// file, and every line is dropped until the next file starts.
     case abandoned
-    /// A combined file with too many parents to count its hunks: every line
-    /// up to the next `diff ` line is dropped.
+    /// A damaged combined file (too many parents, or a header over its
+    /// bounds), whose hunks aren't counted: every line up to the next
+    /// `diff ` line is dropped.
     case skippingToNextDiffLine
 
     var header: FileHeader? {

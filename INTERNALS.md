@@ -46,7 +46,9 @@ suppressed. The library never logs; tools decide what to show.
 Combined diffs (`diff --cc`/`--combined`) are recognized and skipped: each
 file gets `beginFile` with format `.combined(parents:)` and `endFile`, while
 its hunks are only counted, against one budget per parent, so their content
-can't be mistaken for headers or another file's lines.
+can't be mistaken for headers or another file's lines. An abandoned combined
+file (too many parents, or a header over its bounds) can't be counted, so
+everything up to the next `diff ` line is dropped instead.
 
 Plain `diff -N` output marks a missing file with a Unix-epoch timestamp;
 as `git apply` does, an epoch on the old side makes the file an addition

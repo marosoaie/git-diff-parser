@@ -73,7 +73,9 @@ extension DiffEventParser {
     /// `beginFile`; `line` is the line that ended the block, if any.
     mutating func deliverHeader(_ block: HeaderBlock, isBinary: Bool, endingAt line: RawLine?) {
         guard !block.isAbandoned else {
-            file = .abandoned
+            // `.abandoned` counts hunks as `@@` ones, which a combined
+            // file's `@@@` hunks aren't: their columns could fake a file.
+            file = block.parser.isCombined ? .skippingToNextDiffLine : .abandoned
             return
         }
         let fileHeader: FileHeader

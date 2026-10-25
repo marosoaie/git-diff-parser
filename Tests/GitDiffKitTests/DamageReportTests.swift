@@ -139,6 +139,54 @@ struct DamageReportTests {
     }
 
     @Test(
+        "a no-newline marker between hunks that follows no hunk line is reported and dropped",
+        arguments: [
+            // A duplicate: the hunk closed at its last line, so the second
+            // marker arrives outside it.
+            ("""
+                @@ -1 +1 @@
+                -a
+                +b
+                \\ No newline at end of file
+                \\ No newline at end of file
+
+                """, 7, 1),
+            // Before the file's first hunk.
+            ("""
+                \\ No newline at end of file
+                @@ -1 +1 @@
+                -a
+                +b
+
+                """, 3, 0),
+        ]
+    )
+    func misplacedNoNewlineMarkerOutsideHunk(hunks: String, reportedAt lineNumber: Int, markers: Int) {
+        let diff = """
+            --- a/f.txt
+            +++ b/f.txt
+            \(hunks)
+            """ + Self.nextFile
+        let events = EventRecorder.events(in: diff)
+        let report = Self.onlyReport(in: events)
+        #expect(report?.reason == .misplacedNoNewlineMarker)
+        #expect(report?.lineNumber == lineNumber)
+        #expect(report?.file?.newPath?.string == "f.txt")
+        #expect(events.filter { $0 == .noNewlineAtEndOfFile }.count == markers)
+        #expect(!events.contains { if case .unrecognizedLine = $0 { true } else { false } })
+        #expect(Self.endsWithNextFile(events))
+    }
+
+    @Test("a backslash line outside any file is text, not a misplaced no-newline marker")
+    func backslashLineOutsideFile() {
+        let text = "\\ a commit message line"
+        let events = EventRecorder.events(in: "\(text)\n" + Self.nextFile)
+        #expect(EventRecorder.damage(in: events).isEmpty)
+        #expect(events.first == .unrecognizedLine(Array(text.utf8), endsWithCarriageReturn: false))
+        #expect(Self.endsWithNextFile(events))
+    }
+
+    @Test(
         "a header value that doesn't parse is reported and ignored, and the file kept",
         arguments: ["old mode 10o644", "similarity index 101%", "index xyz..abc 100644"]
     )
@@ -258,6 +306,28 @@ extension DamageReportTests {
         #expect(report?.file?.newPath?.string == "big.txt")
         #expect(Self.files(in: events) == ["next.txt"])
         #expect(!events.contains { if case .line(_, Array("dropped".utf8)) = $0 { true } else { false } })
+        #expect(Self.endsWithNextFile(events))
+    }
+
+    @Test("an oversized combined header skips its hunks, so their columns can't fake a file")
+    func combinedHeaderTooLarge() {
+        // The hunk's two lines are `- a/fake` and `+ b/fake` behind two
+        // marker columns, which read as a `---`/`+++` pair outside a hunk.
+        let diff = """
+            diff --cc merged.txt
+            \(String(repeating: "index 1111111,2222222..3333333\n", count: 64))--- a/merged.txt
+            +++ b/merged.txt
+            @@@ -1 -1 +1 @@@
+            --- a/fake
+            +++ b/fake
+
+            """ + Self.nextFile
+        let events = EventRecorder.events(in: diff)
+        let report = Self.onlyReport(in: events)
+        #expect(report?.reason == .headerTooLarge)
+        #expect(report?.lineNumber == 65)
+        #expect(report?.file?.newPath?.string == "merged.txt")
+        #expect(Self.files(in: events) == ["next.txt"])
         #expect(Self.endsWithNextFile(events))
     }
 

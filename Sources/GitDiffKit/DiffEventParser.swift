@@ -126,6 +126,10 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
             beginHunk(line)
         } else if bytes.first == UInt8(ascii: "\\"), takeNoNewlineMarker() {
             return
+        } else if file.hasBegun, bytes.starts(with: DiffSyntax.noNewlinePrefix) {
+            // A duplicate, or one before the first hunk. Outside a file,
+            // such a line is text, as in a format-patch commit message.
+            report(.misplacedNoNewlineMarker)
         } else {
             unrecognized(line)
         }
