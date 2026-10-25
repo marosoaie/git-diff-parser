@@ -612,7 +612,8 @@ it:
   and vice versa — the combined-diff `+++ resolved` case shows why state
   matters.
 - Every number (modes, similarity, sizes, combined ranges) uses the
-  checked digit scanner with a cap; similarity is clamped to 0–100.
+  checked digit scanner with a cap; a similarity or dissimilarity over
+  100 is ignored, as `git apply` ignores it, rather than clamped.
 - The header buffer is bounded (a line count and the line cap), so a
   stream of junk header lines can't grow memory. A header block over the
   bound abandons the file as damaged rather than delivering a partial
