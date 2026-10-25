@@ -75,3 +75,24 @@ jobs:
 
       - name: Run tests
         run: swift test --skip-build
+
+  # TEMPORARY probe for PR #5's hang: does a megabyte-long log line stall
+  # the runner? Reverted once it has answered.
+  long-line-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 6
+    steps:
+      - name: Print a 64 KiB line
+        timeout-minutes: 2
+        run: |
+          printf '%*s\n' 65536 '' | tr ' ' x
+          echo "printed a 64 KiB line"
+      - name: Print a 1 MiB line
+        timeout-minutes: 2
+        run: |
+          printf '%*s\n' 1048576 '' | tr ' ' x
+          echo "printed a 1 MiB line"
