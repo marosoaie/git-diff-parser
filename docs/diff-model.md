@@ -1,9 +1,10 @@
 # The layered diff model
 
-**Status: draft for the maintainer's review (plan step 2.2).** Nothing here
-is implemented yet. Steps 2.3–2.7 build on whatever this document settles,
-so each section ends with a recommendation and its trade-offs, and the open
-questions are collected in [Open questions](#open-questions). Claims that
+**Status: reviewed (plan step 2.2).** The maintainer answered the open
+questions on 2026-10-25; [Answered questions](#answered-questions) records
+the answers, and the recommendations below are updated to match. Steps
+2.3–2.7 build on what this document settles, so each section ends with a
+recommendation and its trade-offs. Claims that
 decide a recommendation are backed by throwaway release-mode measurements,
 described in [Measurements](#measurements).
 
@@ -15,11 +16,11 @@ described in [Measurements](#measurements).
 | D2 | Async | No `AsyncSequence` in 0.2. If one is added later, it yields whole files, never lines | Per-event `AsyncStream` (measured 170× slower) |
 | D3 | `@inlinable` | Not up front. Measure again in 2.4 with a downstream consumer | Inline the whole hot path now |
 | D4 | Header delivery | One `FileHeader` value per file, delivered once the extended headers are complete; no heap allocation per hunk | One callback per extended header line |
-| D5 | Line content payload | `Span<UInt8>`, passed as a bare callback parameter | `ArraySlice<UInt8>`; `String` |
+| D5 | Line content payload | `Span<UInt8>`, passed as a bare callback parameter; platform floors at the 26 releases | `ArraySlice<UInt8>`; `String` |
 | D6 | Paths | Raw bytes (`DiffPath`), with a lossy `String` view; `ChangedLines` keeps `String` keys | `String` everywhere, as today |
-| D7 | CR and line cap | Strip `\r` but record it per line; keep the 1 MiB cap but flag truncated lines, and make the cap configurable | Keep `\r` in the content; drop the cap |
+| D7 | CR and line cap | Strip `\r` but record it per line; keep the 1 MiB cap but flag truncated lines, and make the cap configurable; the full model raises it to 64 MiB | Keep `\r` in the content; drop the cap |
 | D8 | Full-model storage | One byte arena per file, with lines as offsets into it | One `[UInt8]` per line |
-| D9 | Combined diffs | Recognize (`diff --cc` and `diff --combined`) and skip safely in 0.2: result-side header parsed, `@@@` hunks consumed by their counts, no line events | Full N-parent line events now |
+| D9 | Combined diffs | Recognize (`diff --cc` and `diff --combined`) and skip safely in 0.2: result-side header parsed, `@@@` hunks consumed by their counts, no line events; the skip is documented | Full N-parent line events now |
 | D10 | `GIT binary patch` | Recognize, mark binary, keep the block's raw lines for round-tripping; don't decode | Decode base85 and inflate |
 | D11 | Plain `diff -u` | Supported as today, including today's prefix heuristic; epoch timestamps mean `/dev/null`, as in `git apply` | Treat as unsupported |
 
@@ -179,6 +180,8 @@ public protocol DiffEventConsumer {
     mutating func endFile()
     /// A line that is neither header nor hunk content: a commit message, mail headers, `Only in …`, junk.
     mutating func unrecognizedLine(_ content: Span<UInt8>, endsWithCarriageReturn: Bool)
+    /// Input was damaged: `.info` for a local recovery, `.error` for an abandoned file (Q6, to confirm).
+    mutating func damage(_ report: DamageReport)
 }
 // Empty default implementations, so a collector implements only what it needs.
 
@@ -319,6 +322,9 @@ the input back (2.6).
 `description`/`string` (lossy decoding, documented at the declaration) and
 `==` on bytes. `ChangedLines` keeps `String` keys — every consumer today
 uses them, and lossy decoding there only matters for invalid-UTF-8 paths.
+`ChangedLines` documents that its `String` keys compare by Unicode
+canonical equivalence, so the NFC and NFD spellings of one name, which git
+treats as two paths, share a key.
 *Trade-off:* one more type for callers of the full model to learn, versus
 a model that can't represent every real repository.
 
@@ -414,20 +420,20 @@ and on Swift 6.2.4 in the official `swift:6.2` Linux image
   `~Escapable` struct (that needs the experimental lifetime features).
 - **Availability:** `ArraySlice.span` compiles for macOS 14, which is all
   the parser needs (its carry buffer is an array it slices). `Array.span`
-  and `UTF8Span` need macOS 26.
+  and `UTF8Span` need macOS 26. Q7 settled this: the floors rise to the 26
+  releases, so both are usable.
 - **Friction:** `Span` isn't a `Sequence` in 6.2, so no `map`/`filter`,
   and there is no `Array(span)`. Copying out takes an index loop or
   `withUnsafeBufferPointer`, which needs `unsafe` under
   `strictMemorySafety()` (and Swift 6.4 warns that one of those `unsafe`
   markers is unnecessary, so warning-free on both compilers needs care).
-- **Not verified:** iOS, tvOS, watchOS, and visionOS targets weren't
-  probed. As far as I know `Span` back-deploys only to macOS 10.14.4 and
-  iOS 12.2 — later than SwiftPM's defaults if step 2.1 *drops*
-  `platforms:` — so 2.1 should widen it to explicit floors instead.
-- **Not verified:** running on macOS earlier than 26. The measurements ran
-  on macOS 26, where `Span` is in the OS. The build succeeds for macOS
-  14, but whether the back-deployed `Span` runs there needs a CI job on a
-  `macos-14` or `macos-15` runner.
+- **Back-deployment is moot (Q7).** `platforms:` becomes macOS, iOS,
+  tvOS, watchOS, and visionOS 26, where `Span` is in the OS, so the
+  back-deployed `Span` never runs and no `macos-14`/`macos-15` CI job is
+  needed. Linux is unaffected. The change lands with `Span` in 2.4.
+  Consequence for 2.9: swift-steward's floor rises from macOS 14 to 26
+  when it moves to library 0.2.0, and the tap formula needs a matching
+  macOS requirement.
 
 The case for `Span` over `ArraySlice` is safety, not speed: an
 `ArraySlice` payload can be stored, and storing it silently keeps the
@@ -440,10 +446,11 @@ parser's buffer type.
 **Recommendation:** `Span<UInt8>`, with the library shipping the copy-out
 conveniences so consumers never write `unsafe`:
 `Array(copying: Span<UInt8>)` and `String(decodingLossily: Span<UInt8>)`
-(names open), implemented once with a justified `unsafe`.
-*Trade-offs:* more awkward to consume than a slice; adds the runtime
-verification above; pins the callback style (D1) because spans can't be
-values.
+(names open), implemented once with a justified `unsafe`; with the 26
+floors, `UTF8Span` and `Array.span` keep them simple.
+*Trade-offs:* more awkward to consume than a slice; raises the Apple
+platform floors to 26 (Q7); pins the callback style (D1) because spans
+can't be values.
 
 ### Carriage returns and the 1 MiB cap (D7)
 
@@ -462,8 +469,9 @@ full model and the round-trip property (2.6) can't hide them:
   report `isTruncated` so truncation is never silent, and make it a
   `ParsingOptions.maximumLineLength` on `DiffEventParser`. The full-model
   convenience entry point (`Diff(diff:)` and its streaming parser
-  initializer) passes a raised cap, since that collector's memory grows
-  with content anyway. Round-trip tests run with the cap raised.
+  initializer) raises the cap to 64 MiB (Q4), since that collector's
+  memory grows with content anyway; a finite cap still bounds the carry
+  buffer against a newline-free stream. Round-trip tests run with the cap raised.
 - **Both flags must stay chunk-invariant.** Today `appendCapped` drops the
   excess bytes silently and the CR check looks at the capped line, so a
   `\r` that happens to sit at the cap of an over-long line would be
@@ -531,7 +539,9 @@ events. The counting rule, checked against the example: a line with no
 *i*'s budget wherever column *i* is a space; a line with a `-` column is
 not in the result and uses parent *i*'s budget only where column *i* is
 `-`. `ChangedLines` stays
-empty for merges, but deliberately and documented, pointing callers to
+empty for merges, deliberately: the skip is documented at the declarations
+(`ChangedLines`, `DiffEventParser`, `FileHeader.Format.combined`) and in
+the user docs (2.8), pointing callers to
 `--diff-merges=first-parent` or a three-dot diff (measured: the
 first-parent diff of the same merge yields lines 2 and 4).
 *Trade-off:* "what did the merge resolution add" (lines marked `++`)
@@ -609,32 +619,52 @@ it:
   raw header.
 - `diff --git` splitting, quoted-path unquoting, and `rename from/to`
   parsing degrade to "unknown path" rather than trapping.
+- Damage is reported, never logged (Q6, reading to confirm): a `damage`
+  event, a no-op by default, carries a `DamageReport` with the file (its
+  header so far, if any), the input line number, the reason, and a
+  severity — `.info` for a local recovery (a header line ignored, a hunk
+  cut short), `.error` for an abandoned file. The library stays
+  dependency-free; tools such as `steward` log the reports. 2.7 asserts
+  "damage stays inside one file" on these events.
 
-## Open questions
+## Answered questions
 
-For the maintainer; each names the decision it affects.
+The maintainer answered all seven on 2026-10-25. Each names the decision
+it affects; the sections above already reflect the answers.
 
-1. **D1/naming.** `DiffEventParser` / `DiffEventConsumer`, and keep
-   `DiffParser` as the `ChangedLines` facade until 5.1? Other names for
-   the full model (`Diff`, `DiffFile`, `DiffLine`) and the summary
-   (`DiffSummary`)?
-2. **D5.** Is `Span` worth its friction, given the macOS < 26 runtime
-   check still to do? The fallback is `ArraySlice` with a documented
-   "don't store this" warning.
-3. **D6.** Bytes for paths in the full model while `ChangedLines` keeps
-   `String`: acceptable split?
-4. **D7.** Should the full-model collector raise the line cap to unlimited,
-   or to a large finite value (say 64 MiB)?
-5. **D9.** Is "combined diffs yield no lines, deliberately" acceptable for
-   0.2, or should `ChangedLines` report the lines a merge resolution adds?
-6. **Damage reporting.** Should there be a `recoveredFromMalformedInput()`
-   event (no-op by default)? It would let 2.7 assert "damage stays inside
-   one file" directly, and let tools warn users.
-7. **Platforms.** Step 2.1 widens or drops `platforms:`. With D5, it
-   should widen it to explicit floors at or above `Span`'s back-deployment
-   targets rather than drop it. If the floor rises to macOS 26 for other
-   reasons, `UTF8Span` and `Array.span` become usable and the
-   conveniences in D5 get simpler.
+1. **D1, naming: accepted as proposed.** A generic
+   `DiffEventParser<Consumer: DiffEventConsumer>` with `mutating`
+   callbacks; `DiffParser` stays as the `ChangedLines` facade until 5.1;
+   the models are `Diff`, `DiffFile`, `DiffLine`, and `DiffSummary`.
+2. **D5: `Span<UInt8>`, as proposed.** Line content reaches consumers as
+   a bare `Span<UInt8>` callback parameter, and the library ships the
+   copy-out conveniences so consumers never write `unsafe`. With Q7's
+   floors, the back-deployment check on older macOS is no longer needed.
+3. **D6: bytes, as proposed** ("since we also support Linux"). The full
+   model's paths are `DiffPath`: exact unquoted bytes, with `==` and
+   hashing on bytes and a lossy `string`/`description`. `ChangedLines`
+   keeps `String` keys and documents that they compare by Unicode
+   canonical equivalence, so NFC and NFD spellings of one name, which git
+   treats as two paths, share a key.
+4. **D7: 64 MiB.** The full-model entry point raises the line cap to
+   64 MiB, not unlimited. The 1 MiB default, the `isTruncated` flag, and
+   `ParsingOptions.maximumLineLength` stay as proposed.
+5. **D9: skip, and document it.** Combined diffs are recognized and
+   skipped safely in 0.2, with no line events, as proposed. The skip is
+   documented at the declarations and in the user docs (2.8).
+6. **Damage reporting: yes, report it** ("log info/errors on damaged
+   files"). **Reading still to be confirmed with the maintainer:** the
+   library stays dependency-free and never logs by itself. A `damage`
+   event (no-op by default) carries the file, the input line, the reason,
+   and a severity: `.info` for a local recovery, `.error` for an abandoned
+   file; tools such as `steward` log it. Logging inside the library would
+   need swift-log, its first dependency.
+7. **Platforms: the modern `Span` API, even with higher floors.**
+   `platforms:` becomes macOS, iOS, tvOS, watchOS, and visionOS 26, so
+   `Array.span` and `UTF8Span` are usable; Linux is unaffected. It lands
+   with `Span` in 2.4. Consequence for 2.9: when swift-steward moves to
+   library 0.2.0, its floor rises from macOS 14 to 26, and the tap formula
+   needs a matching macOS requirement.
 
 ## Measurements
 
