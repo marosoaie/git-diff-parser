@@ -276,22 +276,41 @@ struct DamageReportTests {
 // MARK: Damage that abandons a file
 
 extension DamageReportTests {
+    /// A way to push a file's header past a limit.
+    ///
+    /// The test takes this rather than the header lines themselves:
+    /// swift-testing prints every argument in full, and GitHub's runner
+    /// stalls on a megabyte-long log line. The test process then blocks
+    /// writing to the full stdout pipe, so the whole run hangs.
+    enum OversizedHeader: CaseIterable {
+        /// 65 lines: the `diff` line and 64 `index` lines; the 65th is one
+        /// too many.
+        case tooManyLines
+        /// Two lines under the line cap that together pass 1 MiB.
+        case tooManyBytes
+        /// One line over the line cap.
+        case lineOverCap
+
+        /// The lines that follow the `diff` line, and the input line the
+        /// report names.
+        var padding: (lines: String, reportedAt: Int) {
+            switch self {
+            case .tooManyLines: (String(repeating: "index 1111111..2222222\n", count: 64), 65)
+            case .tooManyBytes:
+                (String(repeating: "rename from \(String(repeating: "x", count: 600_000))\n", count: 2), 3)
+            case .lineOverCap: ("rename from \(String(repeating: "x", count: 1 << 20))\n", 2)
+            }
+        }
+    }
+
     @Test(
         "an oversized header abandons its file: no beginFile, its lines dropped, the next file parsed",
-        arguments: [
-            // 65 lines: the `diff` line and 64 `index` lines; the 65th is
-            // one too many.
-            (String(repeating: "index 1111111..2222222\n", count: 64), 65),
-            // Two lines under the line cap that together pass 1 MiB.
-            (String(repeating: "rename from \(String(repeating: "x", count: 600_000))\n", count: 2), 3),
-            // One line over the line cap.
-            ("rename from \(String(repeating: "x", count: 1 << 20))\n", 2),
-        ]
+        arguments: OversizedHeader.allCases
     )
-    func headerTooLarge(extraHeaderLines: String, reportedAt lineNumber: Int) {
+    func headerTooLarge(_ header: OversizedHeader) {
         let diff = """
             diff --git a/big.txt b/big.txt
-            \(extraHeaderLines)--- a/big.txt
+            \(header.padding.lines)--- a/big.txt
             +++ b/big.txt
             @@ -1 +1 @@
             -dropped
@@ -302,7 +321,7 @@ extension DamageReportTests {
         let report = Self.onlyReport(in: events)
         #expect(report?.reason == .headerTooLarge)
         #expect(report?.severity == .error)
-        #expect(report?.lineNumber == lineNumber)
+        #expect(report?.lineNumber == header.padding.reportedAt)
         #expect(report?.file?.newPath?.string == "big.txt")
         #expect(Self.files(in: events) == ["next.txt"])
         #expect(!events.contains { if case .line(_, Array("dropped".utf8)) = $0 { true } else { false } })
