@@ -32,7 +32,7 @@ jobs:
         run: swift build --build-tests -Xswiftc -warnings-as-errors
 
       - name: Run tests
-        run: bash .github/hang-watchdog.sh 300
+        run: bash .github/hang-watchdog.sh 180
 
       - name: SwiftLint
         if: ${{ !cancelled() }}
@@ -79,4 +79,4 @@ jobs:
       - name: Run tests
         run: |
           command -v ps >/dev/null || { apt-get update && apt-get install -y --no-install-recommends procps; }
-          bash .github/hang-watchdog.sh 300
+          bash .github/hang-watchdog.sh 180
