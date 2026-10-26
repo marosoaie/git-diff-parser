@@ -14,10 +14,22 @@ extension DiffEventParser {
     static func collect(
         _ consumer: Consumer, from bytes: [UInt8], chunkSize: Int = .max, options: ParsingOptions = .init()
     ) -> Consumer {
+        collect(consumer, from: bytes, chunkSizes: [chunkSize], options: options)
+    }
+
+    /// Feeds `bytes` to a parser in chunks of `chunkSizes`' sizes, cycling
+    /// through them, and returns the finalized consumer.
+    static func collect(
+        _ consumer: Consumer, from bytes: [UInt8], chunkSizes: [Int], options: ParsingOptions = .init()
+    ) -> Consumer {
         var parser = DiffEventParser(consumer: consumer, options: options)
-        stride(from: 0, to: bytes.count, by: chunkSize).forEach { start in
-            parser.consume(bytes[start..<(start + min(chunkSize, bytes.count - start))])
+        let chunks = sequence(state: (start: 0, turn: 0)) { state -> Range<Int>? in
+            guard state.start < bytes.count else { return nil }
+            let end = state.start + min(chunkSizes[state.turn % chunkSizes.count], bytes.count - state.start)
+            defer { state = (end, state.turn + 1) }
+            return state.start..<end
         }
+        chunks.forEach { parser.consume(bytes[$0]) }
         return parser.finalize()
     }
 }

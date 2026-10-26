@@ -1,0 +1,9 @@
+diff --cc merged.txt
+index 1111111,2222222..3333333
+--- a/merged.txt
++++ b/merged.txt
+@@@ -1,2 -1,2 +1,2 @@@
+  same
+- ours
+ -theirs
+++both
