@@ -22,7 +22,9 @@ The last two rows were measured on the Linux 6.6→6.7 release diff
 release build on an Apple M4 with Swift 6.4. Memory is the process's
 peak resident size, the input buffer included. ``ChangedLines`` stays
 flat as the input grows, the summary grows with the file count (about
-500 bytes per file), and the full model with the content.
+500 bytes per file), and the full model with the content. On hostile
+input, the damage reports the summary and the full model keep can grow
+with the input too.
 
 Pick the least that answers your question. The examples below parse the
 `diffText` from <doc:GettingStarted>, which edits `Greeting.swift`,
@@ -78,7 +80,9 @@ renamed, or copied, with git's similarity), both paths, both modes and
 ``FileHeader/modeChanged``, the object IDs from the `index` line,
 ``FileHeader/isBinary``, and a rewrite's dissimilarity. Every file is
 listed, deleted and binary ones included; a binary file counts no lines.
-Its memory grows with the number of files, never with their content.
+Its memory grows with the number of files, not with their content;
+only its `damage` list can grow with a hostile input's lines (see
+<doc:DamagedInput>).
 
 ### The full model
 

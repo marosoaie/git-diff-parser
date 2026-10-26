@@ -24,8 +24,9 @@ if changes.contains(line: 3, in: "Sources/App/Greeting.swift") {
   chunking, and working memory stays bounded however large the input.
 - **Three collectors.** ``ChangedLines`` records added lines per file,
   ``DiffSummary`` each file's status and line counts, and ``Diff`` the
-  full model, which renders back to the input byte for byte. A
-  ``DiffEventConsumer`` of your own sees every event.
+  full model, which renders git's output back byte for byte, merges'
+  combined diffs aside. A ``DiffEventConsumer`` of your own sees every
+  event.
 - **Safe on hostile input.** Malformed, truncated, or adversarial diffs
   never trap and never throw: the parser repairs what it can, abandons
   a file it can't read, reports both as ``DamageReport``s, and carries

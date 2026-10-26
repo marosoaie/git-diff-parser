@@ -123,8 +123,10 @@ needs:
   do, nor do files whose diff only deletes lines, renames them, or
   changes their mode. A renamed file with added lines appears under its
   new path.
-- **Paths are relative to the repository root**, with git's quoting
-  undone and its `a/` and `b/` prefixes removed.
+- **Paths are as the diff names them**, with git's quoting undone and
+  its `a/` and `b/` prefixes removed: for `git diff`, relative to the
+  repository root (or to the directory `--relative` names); for plain
+  `diff -ruN old new`, starting with `new/`.
 - **Paths are `String` keys, decoded from git's bytes**, so they compare
   by Unicode canonical equivalence: the NFC and NFD spellings of one
   name, which git treats as two paths, share a key. Invalid UTF-8 is

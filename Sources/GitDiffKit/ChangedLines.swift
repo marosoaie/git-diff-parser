@@ -156,7 +156,8 @@ public struct LineRangeSet: Sendable, Equatable {
 /// The lines a diff adds or modifies, grouped by file path.
 ///
 /// Paths are as they appear on the "new" side of the diff (the `+++ b/...`
-/// header), relative to the repository root. Deleted files never appear,
+/// header), without git's `a/` or `b/` prefix: for `git diff`, relative to
+/// the repository root. Deleted files never appear,
 /// and only added lines are recorded: git represents a modified line as a
 /// removal plus an addition, so additions cover both cases.
 ///

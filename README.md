@@ -8,7 +8,8 @@ pull request's `.diff`, or plain `diff -u` — and tells you what they
 change: which lines each file adds, what happened to each file, or the
 whole diff with every line's content.
 
-It streams, so a diff of any size parses in bounded memory. It has no
+It streams: the parser's own memory stays bounded however large the
+diff, and what the result keeps is up to the collector you pick. It has no
 dependencies and doesn't import Foundation, so it runs on every Apple
 platform and on Linux. And it never crashes on a damaged diff: it
 repairs what it can, skips what it can't, and tells you which.
@@ -66,7 +67,7 @@ Keep only as much of the diff as your question needs:
 |---|---|---|---|
 | `ChangedLines` | Each file's added lines, as ranges | The number of edits | 0.11 s, 22 MB |
 | `DiffSummary` | Each file's status (added, deleted, renamed, copied, mode change, binary), paths, and line counts | The number of files | 0.13 s, 24 MB |
-| `Diff` | Everything: hunks and every line's content; renders back to the input byte for byte | The diff's content, about 2.5× its size | 0.20 s, 187 MB |
+| `Diff` | Everything: hunks and every line's content; renders git's output back byte for byte, merges aside | The diff's content, about 2.5× its size | 0.20 s, 187 MB |
 
 Times and peak memory are for the Linux 6.6→6.7 release diff (13,479
 files), read in 4 MiB chunks by a release build on an Apple M4.
@@ -106,8 +107,8 @@ default, so it takes only the events it needs.
   full model keep each path as the exact bytes git wrote.
 - `git show`, `git log -p`, and `git format-patch` streams, whose commit
   messages and mail headers the full model keeps in place.
-- Plain `diff -u` and `diff -ruN`, including the epoch timestamps that
-  mark a created or deleted file.
+- Plain `diff -u` and `diff -ruN`, including GNU diff's epoch timestamps,
+  which mark a created or deleted file.
 - CRLF line endings and missing final newlines, recorded per line.
 - Merge commits' combined diffs (`diff --cc`) are recognized and skipped:
   they contribute no lines. Diff a merge against its first parent
@@ -117,6 +118,7 @@ Malformed, truncated, or adversarial input never traps or throws. The
 parser repairs damage locally or abandons the damaged file, picks up
 again at the next file, and reports each case as a `DamageReport`; its
 own buffers stay bounded however long a line or header block runs.
+Seeded mutation tests and a libFuzzer target check these guarantees;
 [SECURITY.md](SECURITY.md) has the details.
 
 Results are checked against git: on the Linux kernel, redis, and

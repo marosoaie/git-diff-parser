@@ -49,6 +49,18 @@ article shows how to read the reports.
 
 ## How it is tested
 
+- Seeded mutation tests (`MutationTests`) edit the real diffs and a
+  corpus of special cases — random bytes, and structural edits aimed at
+  headers and hunks, such as counts past the 2⁴⁸ cap or a header past
+  its 64 lines — and check that nothing traps, that results don't depend
+  on chunking or the line cap's position, that the files outside an edit
+  parse exactly as they do clean, and that an undamaged result renders
+  back to the same model. CI runs a few hundred seeds on macOS and
+  Linux; a failure names its seed.
+- Linux CI fuzzes the parser for a minute on every change with libFuzzer
+  and AddressSanitizer (`Fuzz/FuzzTarget.swift`), checking that chunking
+  never changes a result and that an undamaged model renders back to
+  itself.
 - Every hostile-input fix comes with a regression test, collected in
   `MalformedInputTests`.
 - The parser's results are cross-checked against git's own patch parser

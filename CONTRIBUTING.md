@@ -93,6 +93,15 @@ short:
 - Check results against an oracle where one exists, such as
   `git apply --numstat`, rather than against hand-computed numbers.
 - Every bug fix comes with a regression test (see `MalformedInputTests`).
+- Hostile input is tested by seeded mutations of the real diffs and a
+  corpus (`MutationTests`): edits must never trap, must not change
+  results across chunkings, and must leave the files they don't touch as
+  they parse clean. A failure names its seed; rerun it with
+  `GIT_DIFF_PARSER_MUTATION_SEEDS=<seed> swift test --filter MutationTests`,
+  or a quoted range such as `'0..<100000'` for a longer run.
+- Linux CI also fuzzes for a minute with libFuzzer, which Apple's
+  toolchains don't ship; [Fuzz/FuzzTarget.swift](Fuzz/FuzzTarget.swift)
+  says how to run it in the `swift:6.2` container.
 - Changes that affect performance are benchmarked in release mode on
   the kernel diff before they merge; [INTERNALS.md](INTERNALS.md) has
   the numbers to stay within.
@@ -100,8 +109,8 @@ short:
 ## Pull requests
 
 - `main` takes changes only through pull requests, which the maintainer
-  reviews and merges. CI runs the suite on macOS and Ubuntu, and
-  SwiftLint.
+  reviews and merges. CI runs the suite on macOS and Ubuntu, SwiftLint,
+  a documentation build that fails on any warning, and the fuzzer.
 - Write commit subjects in the imperative mood ("Parse rename headers"),
   with a body that explains why and what you checked.
 - Say in the pull request which tests you ran.
