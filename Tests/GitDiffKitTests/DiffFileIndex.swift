@@ -1,11 +1,16 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Where each file of a large diff starts, for cutting windows of whole
 /// files out of it.
 ///
-/// The searches go through `Data.range(of:in:)`, which runs optimized even
-/// in a debug build; a byte loop in Swift would take seconds over the
-/// kernel diff's 74 MB.
+/// The searches go through libc's `memmem`, which runs optimized even in a
+/// debug build: a byte loop in Swift would take seconds over the kernel
+/// diff's 74 MB, and corelibs Foundation's `Data.range(of:in:)` minutes.
 struct DiffFileIndex {
     let data: Data
     /// Where each `diff ` line starts, then `data.count`.
@@ -33,12 +38,18 @@ struct DiffFileIndex {
     ]
 
     private static func offsets(of marker: String, in data: Data) -> [Int] {
-        let pattern = Data(marker.utf8)
-        return Array(sequence(state: data.startIndex) { start -> Int? in
-            guard let found = data.range(of: pattern, in: start..<data.endIndex) else { return nil }
-            start = found.upperBound
-            return found.lowerBound
-        })
+        let pattern = Array(marker.utf8)
+        return unsafe data.withUnsafeBytes { bytes in
+            guard let base = bytes.baseAddress else { return [] }
+            let count = bytes.count
+            return Array(sequence(state: 0) { start -> Int? in
+                guard start < count, let found = unsafe memmem(base + start, count - start, pattern, pattern.count)
+                else { return nil }
+                let offset = unsafe base.distance(to: UnsafeRawPointer(found))
+                start = offset + pattern.count
+                return data.startIndex + offset
+            })
+        }
     }
 
     /// Binary search: the last index of `sorted` whose element is at most
