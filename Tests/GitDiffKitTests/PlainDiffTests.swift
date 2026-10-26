@@ -40,11 +40,11 @@ struct PlainDiffTests {
     /// The files of the diff at `url`, with the leading `old/`/`new/` cut
     /// from their paths as `git apply -p1` does: the parser strips only
     /// git's `a/` and `b/`.
-    private static func files(inDiffAt url: URL) throws -> [FileTally.File] {
+    private static func files(inDiffAt url: URL) throws -> [DiffSummary.File] {
         let strip = { (path: DiffPath?) in
             path.map { path in DiffPath(Array(path.bytes.drop { $0 != UInt8(ascii: "/") }.dropFirst())) }
         }
-        return FileTally.files(in: Array(try Data(contentsOf: url))).map { file in
+        return DiffSummary.files(in: Array(try Data(contentsOf: url))).map { file in
             var file = file
             file.header.oldPath = strip(file.header.oldPath)
             file.header.newPath = strip(file.header.newPath)

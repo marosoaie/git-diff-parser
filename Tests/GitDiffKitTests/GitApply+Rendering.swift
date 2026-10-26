@@ -5,17 +5,17 @@
 extension GitApply {
     /// What `git apply --summary` prints, mirroring apply.c's
     /// `summary_patch_list`.
-    static func summary(of files: [FileTally.File]) -> [UInt8] {
+    static func summary(of files: [DiffSummary.File]) -> [UInt8] {
         files.flatMap { summaryLines(of: $0.header) }
     }
 
     /// What `git apply --numstat -z` prints, mirroring apply.c's
     /// `numstat_patch_list`.
-    static func numstat(of files: [FileTally.File]) -> [NumstatEntry] {
+    static func numstat(of files: [DiffSummary.File]) -> [NumstatEntry] {
         files.map { file in
             NumstatEntry(
-                added: file.header.isBinary ? nil : file.addedLines,
-                deleted: file.header.isBinary ? nil : file.deletedLines,
+                added: file.header.isBinary ? nil : file.addedLineCount,
+                deleted: file.header.isBinary ? nil : file.deletedLineCount,
                 path: (file.header.newPath ?? file.header.oldPath)?.bytes ?? []
             )
         }

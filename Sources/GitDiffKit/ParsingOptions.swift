@@ -11,4 +11,9 @@ public struct ParsingOptions: Sendable, Equatable {
     public init(maximumLineLength: Int = 1 << 20) {
         self.maximumLineLength = maximumLineLength
     }
+
+    /// The full model's options: the line cap raised to 64 MiB, since a
+    /// collector that keeps content grows with it anyway. A finite cap
+    /// still bounds the buffer a newline-free stream could fill.
+    public static let fullModel = ParsingOptions(maximumLineLength: 64 << 20)
 }

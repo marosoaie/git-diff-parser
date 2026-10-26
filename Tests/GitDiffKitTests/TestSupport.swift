@@ -8,38 +8,29 @@ extension ChangedLines {
     }
 }
 
-/// Records each file's header and how many lines its hunks add and
-/// delete: what `git apply --summary` and `--numstat` print, so the
-/// oracle tests check the event path.
-struct FileTally: DiffEventConsumer, Sendable {
-    /// One file of the diff.
-    struct File: Sendable, Equatable {
-        var header: FileHeader
-        var addedLines = 0
-        var deletedLines = 0
-    }
-
-    var files: [File] = []
-
-    mutating func beginFile(_ header: FileHeader, rawHeader: Span<UInt8>) {
-        files.append(File(header: header))
-    }
-
-    mutating func line(_ line: LineInfo, content: Span<UInt8>) {
-        switch line.kind {
-        case .addition: files[files.count - 1].addedLines += 1
-        case .deletion: files[files.count - 1].deletedLines += 1
-        case .context: break
+extension DiffEventParser {
+    /// Feeds `bytes` to a parser in `chunkSize`-byte chunks and returns
+    /// the finalized consumer.
+    static func collect(
+        _ consumer: Consumer, from bytes: [UInt8], chunkSize: Int = .max, options: ParsingOptions = .init()
+    ) -> Consumer {
+        var parser = DiffEventParser(consumer: consumer, options: options)
+        stride(from: 0, to: bytes.count, by: chunkSize).forEach { start in
+            parser.consume(bytes[start..<(start + min(chunkSize, bytes.count - start))])
         }
+        return parser.finalize()
+    }
+}
+
+extension DiffSummary {
+    /// The summary of `bytes`, fed to a parser in `chunkSize`-byte chunks.
+    static func of(_ bytes: [UInt8], chunkSize: Int = .max) -> DiffSummary {
+        DiffEventParser.collect(Collector(), from: bytes, chunkSize: chunkSize).summary
     }
 
     /// The files of `bytes`, fed to a parser in `chunkSize`-byte chunks.
     static func files(in bytes: [UInt8], chunkSize: Int = .max) -> [File] {
-        var parser = DiffEventParser(consumer: FileTally())
-        stride(from: 0, to: bytes.count, by: chunkSize).forEach { start in
-            parser.consume(bytes[start..<(start + min(chunkSize, bytes.count - start))])
-        }
-        return parser.finalize().files
+        of(bytes, chunkSize: chunkSize).files
     }
 }
 

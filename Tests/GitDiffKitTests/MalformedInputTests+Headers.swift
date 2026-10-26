@@ -6,7 +6,7 @@ import Testing
 /// `git apply` reads them where it accepts them at all, and never trap.
 extension MalformedInputTests {
     static func headers(_ diff: String) -> [FileHeader] {
-        FileTally.files(in: Array(diff.utf8)).map(\.header)
+        DiffSummary.files(in: Array(diff.utf8)).map(\.header)
     }
 
     static let damagedHeaders = [
@@ -72,7 +72,7 @@ extension MalformedInputTests {
         let url = directory.appendingPathComponent("damaged.diff")
         try Data(diff.utf8).write(to: url)
 
-        let files = FileTally.files(in: Array(diff.utf8))
+        let files = DiffSummary.files(in: Array(diff.utf8))
         Oracle.expectEqualLines(GitApply.summary(of: files), try GitApply.summary(forDiffAt: url))
         Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: url))
     }

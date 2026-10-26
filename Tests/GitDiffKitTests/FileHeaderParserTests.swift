@@ -3,8 +3,8 @@ import Testing
 
 @Suite("File headers")
 struct FileHeaderParserTests {
-    static func scan(_ diff: String) -> [FileTally.File] {
-        FileTally.files(in: Array(diff.utf8))
+    static func scan(_ diff: String) -> [DiffSummary.File] {
+        DiffSummary.files(in: Array(diff.utf8))
     }
 
     static func path(_ text: String) -> DiffPath {
@@ -54,7 +54,7 @@ struct FileHeaderParserTests {
         #expect(files.map(\.header.oldMode) == [.regular, nil])
         #expect(files.map(\.header.newMode) == [nil, .symlink])
         #expect(files.map(\.header.oldObjectID?.description) == ["eb5a316", "0000000"])
-        #expect(files.map { [$0.addedLines, $0.deletedLines] } == [[0, 1], [1, 0]])
+        #expect(files.map { [$0.addedLineCount, $0.deletedLineCount] } == [[0, 1], [1, 0]])
     }
 
     @Test("a binary file and a mode change without ---/+++ take their path from the diff --git line")
