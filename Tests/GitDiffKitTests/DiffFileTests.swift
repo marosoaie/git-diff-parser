@@ -118,6 +118,23 @@ struct DiffFileTests {
         #expect(printed.contains("hunks") && printed.contains("leadingLines") && printed.contains("DiffLine("))
         #expect(!printed.contains("storage") && !printed.contains("Record") && !printed.contains("offset"))
         #expect(String(describing: Self.file.hunks[0].trailingLines).hasPrefix("[GitDiffKit.DiffTextLine("))
+        let lines = Self.file.hunks[1].lines
+        #expect(String(describing: lines) == Array(lines).description)
+    }
+
+    @Test("a collection's mirror reflects its elements, in order, as a collection")
+    func mirrors() {
+        // Codex review: the mirrors built an array of every element first;
+        // now the collection itself is the children, mapped lazily.
+        let lines = Self.file.lines
+        let mirror = Mirror(reflecting: lines)
+        #expect(mirror.displayStyle == .collection)
+        #expect(mirror.children.count == lines.count)
+        #expect(mirror.children.compactMap { $0.value as? DiffLine } == Array(lines))
+        let hunks = Self.file.hunks
+        #expect(Mirror(reflecting: hunks).children.compactMap { $0.value as? DiffHunk } == Array(hunks))
+        let trailing = Self.file.hunks[0].trailingLines
+        #expect(Mirror(reflecting: trailing).children.compactMap { $0.value as? DiffTextLine } == Array(trailing))
     }
 
     @Test("empty collections and an empty file hold nothing")

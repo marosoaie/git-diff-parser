@@ -56,13 +56,13 @@ extension DiffFile {
 
         /// The lines, printed as an array is.
         public var description: String {
-            Array(self).description
+            "[" + lazy.map { String(reflecting: $0) }.joined(separator: ", ") + "]"
         }
 
         /// The lines, so `dump` and debuggers show them rather than the
-        /// packed storage.
+        /// packed storage. Built lazily: only the children read are built.
         public var customMirror: Mirror {
-            Mirror(self, unlabeledChildren: Array(self), displayStyle: .collection)
+            Mirror(self, unlabeledChildren: self, displayStyle: .collection)
         }
     }
 }
