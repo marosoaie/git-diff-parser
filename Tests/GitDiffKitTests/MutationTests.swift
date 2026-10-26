@@ -5,9 +5,10 @@ import Testing
 /// Seeded mutations of clean diffs — byte noise and structural edits (see
 /// `Mutation.random(in:using:)`) — checked against `MutationCheck`'s rules:
 /// no trap, results that don't depend on chunking, collectors that agree
-/// with the events, and the files outside the edit's footprint exactly as
-/// in the clean parse. Odd seeds then pile up to six more edits on top and
-/// check the rules that hold for any input.
+/// with the events, a model that renders back to itself when undamaged,
+/// and the files outside the edit's footprint exactly as in the clean
+/// parse. Odd seeds then pile up to six more edits on top and check the
+/// rules that hold for any input.
 ///
 /// Each seed picks a window and an edit, the same on every platform. A
 /// failure names its seed; to rerun some, set
@@ -23,14 +24,15 @@ import Testing
 )
 struct MutationTests {
     /// Structures the real fixtures lack, as one clean diff: a commit
-    /// preamble, every status, `Binary files`, a `GIT binary patch`,
-    /// combined diffs of two and three parents, a plain `diff -u` file,
-    /// a quoted path, CRLF, commit text between files, and a missing
-    /// newline at the end of a file.
-    static let corpus = DiffSummaryTests.statuses + DiffTests.binaryPatch + combined + """
+    /// preamble, every status, `Binary files`, a `GIT binary patch`, a
+    /// plain `diff -u` file, a quoted path, CRLF, commit text between
+    /// files, a missing newline at the end of a file, and combined diffs
+    /// of two and three parents. The combined diffs come last: the files
+    /// before them must render back to what they parsed from.
+    static let corpus = DiffSummaryTests.statuses + DiffTests.binaryPatch + """
         diff -u old/f.txt new/f.txt
 
-        """ + DiffTests.plain + quoted + DiffTests.crlf + DiffTests.logWithCommits
+        """ + DiffTests.plain + quoted + DiffTests.crlf + DiffTests.logWithCommits + combined
 
     static let combined = """
         diff --cc merged.txt

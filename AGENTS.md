@@ -120,7 +120,8 @@ iteration), never narration of the next line.
 - Hostile input is tested by seeded mutations of the real fixtures and a
   corpus (`MutationTests`): byte noise and structural edits must never
   trap, must not change results across chunkings, and must leave the
-  files they didn't touch exactly as parsed clean. CI runs a few hundred
+  files they didn't touch exactly as parsed clean; an input that still
+  parses without damage must render back to the same model. CI runs a few hundred
   seeds; a failure names its seed, and `GIT_DIFF_PARSER_MUTATION_SEEDS`
   (one seed, or a quoted range such as `'0..<100000'`) reruns it.
   Linux CI also fuzzes for a minute with libFuzzer

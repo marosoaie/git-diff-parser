@@ -3,12 +3,13 @@
 /// A clean window's parse, and the rules any mutation of it must keep.
 ///
 /// Whatever the edit, parsing must not trap, its results must not depend
-/// on chunking, the collectors must agree with the events, and the files
-/// outside the mutation's footprint (`DiffWindow.footprint(of:)`) must
-/// come out exactly as in the clean parse: their events, their
-/// `ChangedLines` entries, their `DiffSummary` and `Diff` files. A `diff `
-/// line resets the parser, so damage can't spread past the next intact
-/// one; before the edit, the input is the same.
+/// on chunking, the collectors must agree with the events (and, without
+/// damage, the model with its own rendering), and the files outside the
+/// mutation's footprint (`DiffWindow.footprint(of:)`) must come out
+/// exactly as in the clean parse: their events, their `ChangedLines`
+/// entries, their `DiffSummary` and `Diff` files. A `diff ` line resets
+/// the parser, so damage can't spread past the next intact one; before
+/// the edit, the input is the same.
 struct MutationCheck {
     let window: DiffWindow
     let clean: ParseResults
@@ -26,7 +27,8 @@ struct MutationCheck {
     }
 
     /// Parses `window`, or says why it isn't clean: it must parse without
-    /// damage, one file per `diff ` line, the same line by line as whole.
+    /// damage, one file per `diff ` line, the same line by line as whole,
+    /// and render back to its own bytes.
     static func make(_ window: DiffWindow) -> Result<Self, SetupError> {
         let check = Self(window: window, clean: ParseResults(of: window.bytes), cleanEvents: eventsByLine(of: window))
         guard check.clean.events == check.cleanEvents.events,
@@ -37,6 +39,9 @@ struct MutationCheck {
                 the clean window parses with \(check.clean.summary.damage.count) damage reports and \
                 \(check.clean.summary.files.count) files for \(window.fileCount) diff lines
                 """))
+        }
+        if let part = check.firstPartNotRenderingBack {
+            return .failure(SetupError(description: "the clean window's \(part) doesn't render back to its bytes"))
         }
         return .success(check)
     }
