@@ -42,11 +42,18 @@ extension MutationCheck {
     /// The collectors agree with the events and with each other: the model
     /// replays as the events, and the summary and `ChangedLines` are what
     /// the model's files say.
-    static func consistency(of results: ParseResults) -> [String] {
+    static func consistency(of results: ParseResults, bytes: [UInt8]) -> [String] {
         let damage = EventRecorder.damage(in: results.events)
+        // The model's line cap is 64 MiB, the events' 1 MiB: a longer line
+        // (piled edits can join a window into one) needs the model's cap.
+        let longestLine = bytes.split(separator: DiffWindow.newline, omittingEmptySubsequences: false)
+            .lazy.map(\.count).max() ?? 0
+        let modelEvents = longestLine > ParsingOptions().maximumLineLength
+            ? EventRecorder.events(in: bytes, options: .fullModel)
+            : results.events
         let replayed = firstDifference(
             results.diff.replayedEvents,
-            results.events.filter { if case .damage = $0 { false } else { true } }
+            modelEvents.filter { if case .damage = $0 { false } else { true } }
         ).map { "Diff doesn't replay as the events: \($0)" }
         let files = zip(results.diff.files, results.diff.lineCounts).map { file, counts in
             DiffSummary.File(header: file.header, addedLineCount: counts[0], deletedLineCount: counts[1])
@@ -59,7 +66,7 @@ extension MutationCheck {
         }
         return [
             replayed,
-            results.diff.damage == damage && results.summary.damage == damage
+            results.diff.damage == EventRecorder.damage(in: modelEvents) && results.summary.damage == damage
                 ? nil : "the collectors' damage differs from the events'",
             results.summary.files == files ? nil : "DiffSummary's files differ from Diff's",
             results.changedLines == ChangedLines(files: additions) ? nil : "ChangedLines differs from Diff's additions",
@@ -79,6 +86,6 @@ extension MutationCheck {
         let capped = EventRecorder.events(in: bytes, options: options)
         return chunkInvariance(of: bytes, whole, chunkSizes: chunkSizes)
             + chunkInvariance(of: bytes, capped, options: options, chunkSizes: [1])
-            + consistency(of: whole)
+            + consistency(of: whole, bytes: bytes)
     }
 }

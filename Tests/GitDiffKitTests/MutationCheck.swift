@@ -70,7 +70,7 @@ struct MutationCheck {
             - window.bytes[mutation.range].count { $0 == newline }
         return Self.chunkInvariance(of: bytes, mutated, chunkSizes: chunkSizes)
             + Self.chunkInvariance(of: bytes, capped, options: options, chunkSizes: cappedChunkSizes)
-            + Self.consistency(of: mutated)
+            + Self.consistency(of: mutated, bytes: bytes)
             + [
                 Self.eventLocality(
                     mutated.events, clean: cleanEvents, in: window, footprint: footprint, addedLines: addedLines
