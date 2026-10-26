@@ -14,6 +14,8 @@ struct Mutation: Equatable, CustomStringConvertible {
         case lineCopied
         case hunkCountChanged
         case atSignsChanged
+        case diffLineFormatChanged
+        case syntaxLineInserted
         case markerReplaced
         case carriageReturnAdded
         case newlineRemoved

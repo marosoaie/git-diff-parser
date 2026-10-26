@@ -4,7 +4,8 @@ extension Mutation {
     /// short), and structural edits of the lines that steer the parser —
     /// duplicated, dropped, swapped, or copied lines (header and hunk lines
     /// half the time), a line repeated past the header bound, changed hunk
-    /// counts and `@` runs, replaced line markers, and changed line endings.
+    /// counts and `@` runs, a file switched to another format, a line of
+    /// diff syntax inserted, replaced line markers, and changed line endings.
     static func random(in window: DiffWindow, using generator: inout SplitMix64) -> Mutation {
         let kind = generator.element(of: Kind.allCases)
         let mutation = switch kind {
@@ -16,7 +17,7 @@ extension Mutation {
             lineEdit(kind, in: window, using: &generator)
         case .hunkCountChanged:
             hunkCountChanged(in: window, using: &generator)
-        case .atSignsChanged, .markerReplaced:
+        case .atSignsChanged, .markerReplaced, .diffLineFormatChanged, .syntaxLineInserted:
             syntaxEdit(kind, in: window, using: &generator)
         }
         // Nil when the window has nothing the kind can edit.
@@ -103,10 +104,36 @@ extension Mutation {
             let line = generator.element(of: window.lines)
             let marker = generator.element(of: Array(" +-@\\d\t\n".utf8))
             return Mutation(kind: kind, range: line.lowerBound..<(line.lowerBound + 1), replacement: [marker])
+        case .diffLineFormatChanged:
+            // A `diff --git ` line's prefix, so the file's headers and hunks
+            // are read as another format's.
+            let prefix = Array("diff --git ".utf8)
+            let gitLines = window.lines.filter { bytes[$0].starts(with: prefix) }
+            guard !gitLines.isEmpty else { return nil }
+            let start = generator.element(of: gitLines).lowerBound
+            let format = generator.element(of: ["diff --cc ", "diff --combined ", "diff -u ", "diff ", "diff --git"])
+            return Mutation(kind: kind, range: start..<(start + prefix.count), replacement: Array(format.utf8))
+        case .syntaxLineInserted:
+            let offset = generator.element(of: window.lineStarts)
+            let line = generator.element(of: syntaxLines)
+            return Mutation(kind: kind, range: offset..<offset, replacement: Array("\(line)\n".utf8))
         default:
             return nil
         }
     }
+
+    /// Lines the parser gives meaning to, most of which the real fixtures
+    /// lack.
+    private static let syntaxLines = [
+        "GIT binary patch", "literal 0", "literal 12", "delta 7", "zcmV?d00001", "",
+        "Binary files a/x and b/x differ", "Files a/x and b/x differ", "\\ No newline at end of file",
+        "@@ -1 +1 @@", "@@ -0,0 +1,3 @@ heading", "@@@ -1 -1 +1 @@@", "@@@@ -1,2 -1 -1 +1,2 @@@@",
+        "--- a/x", "+++ b/x", "--- /dev/null", "+++ /dev/null", "rename from x", "rename to y",
+        "copy from x", "copy to y", "similarity index 50%", "dissimilarity index 101%", "old mode 100644",
+        "new mode 100755", "new file mode 100644", "deleted file mode 100644", "index 0000000..1111111 100644",
+        "index 1111111,2222222..3333333", "mode 100644,100644..100755", "diff --git a/x b/x", "diff --cc x",
+        "diff -u a/x b/x", "Only in a: x", "commit 0123456789abcdef", "--- ",
+    ]
 
     /// `bytes` with two to six more random edits, each made on the last
     /// one's result.
