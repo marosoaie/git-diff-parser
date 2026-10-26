@@ -9,7 +9,7 @@
 ///
 /// In input order, a file is its raw header, then its binary patch lines,
 /// its leading lines, and its hunks, each followed by its trailing lines.
-public struct DiffFile: Sendable, Equatable {
+public struct DiffFile: Sendable, Equatable, CustomReflectable {
     /// What the diff says about the file: status, paths, modes, and
     /// whether it is binary.
     public var header: FileHeader
@@ -82,5 +82,17 @@ public struct DiffFile: Sendable, Equatable {
             && lhs.binaryPatchLines == rhs.binaryPatchLines
             && lhs.leadingLines == rhs.leadingLines
             && lhs.hunks == rhs.hunks
+    }
+
+    /// The file's parts, so printing shows them rather than the packed
+    /// storage.
+    public var customMirror: Mirror {
+        Mirror(self, children: [
+            "header": header,
+            "rawHeader": rawHeader,
+            "binaryPatchLines": binaryPatchLines,
+            "leadingLines": leadingLines,
+            "hunks": hunks,
+        ], displayStyle: .struct)
     }
 }

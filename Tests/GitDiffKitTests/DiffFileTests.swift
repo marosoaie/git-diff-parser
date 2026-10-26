@@ -112,6 +112,14 @@ struct DiffFileTests {
         #expect(MemoryLayout<DiffFile.LineRecord>.stride == 32)
     }
 
+    @Test("printing shows a file's parts and lines, not its packed storage")
+    func printing() {
+        let printed = String(describing: Self.file)
+        #expect(printed.contains("hunks") && printed.contains("leadingLines") && printed.contains("DiffLine("))
+        #expect(!printed.contains("storage") && !printed.contains("Record") && !printed.contains("offset"))
+        #expect(String(describing: Self.file.hunks[0].trailingLines).hasPrefix("[GitDiffKit.DiffTextLine("))
+    }
+
     @Test("empty collections and an empty file hold nothing")
     func empty() {
         let file = DiffFile(header: Self.header)

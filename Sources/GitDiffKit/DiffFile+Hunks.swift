@@ -3,7 +3,8 @@ extension DiffFile {
     ///
     /// Indices run from 0 to `count`. Elements are built on access and
     /// share the file's storage.
-    public struct Hunks: RandomAccessCollection, ExpressibleByArrayLiteral, Sendable, Equatable {
+    public struct Hunks: RandomAccessCollection, ExpressibleByArrayLiteral, Sendable, Equatable,
+        CustomStringConvertible, CustomReflectable {
         private let storage: Storage
 
         init(of storage: Storage) {
@@ -48,6 +49,17 @@ extension DiffFile {
         /// stored.
         public static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.elementsEqual(rhs)
+        }
+
+        /// The hunks, printed as an array is.
+        public var description: String {
+            Array(self).description
+        }
+
+        /// The hunks, so `dump` and debuggers show them rather than the
+        /// packed storage.
+        public var customMirror: Mirror {
+            Mirror(self, unlabeledChildren: Array(self), displayStyle: .collection)
         }
     }
 }

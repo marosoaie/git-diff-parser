@@ -4,7 +4,8 @@ extension DiffFile {
     ///
     /// Indices run from 0 to `count`, whichever lines the collection holds.
     /// Elements are built on access and share the file's storage.
-    public struct Lines: RandomAccessCollection, ExpressibleByArrayLiteral, Sendable, Equatable {
+    public struct Lines: RandomAccessCollection, ExpressibleByArrayLiteral, Sendable, Equatable,
+        CustomStringConvertible, CustomReflectable {
         private let bytes: [UInt8]
         private let records: [LineRecord]
         /// Where these lines start in `records`.
@@ -51,6 +52,17 @@ extension DiffFile {
         /// stored.
         public static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.elementsEqual(rhs)
+        }
+
+        /// The lines, printed as an array is.
+        public var description: String {
+            Array(self).description
+        }
+
+        /// The lines, so `dump` and debuggers show them rather than the
+        /// packed storage.
+        public var customMirror: Mirror {
+            Mirror(self, unlabeledChildren: Array(self), displayStyle: .collection)
         }
     }
 }
