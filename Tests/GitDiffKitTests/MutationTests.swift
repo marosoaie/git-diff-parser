@@ -15,7 +15,11 @@ import Testing
 /// A trap kills the run before it can say which seed did it: set
 /// `GIT_DIFF_PARSER_MUTATION_TRACE=1` to print each seed to stderr before
 /// it runs.
-@Suite("Mutated diffs", .timeLimit(.minutes(10)))
+@Suite(
+    "Mutated diffs",
+    // CI's seeds take seconds; a long run of chosen seeds takes as long as it needs.
+    .timeLimit(.minutes(ProcessInfo.processInfo.environment["GIT_DIFF_PARSER_MUTATION_SEEDS"] == nil ? 10 : 24 * 60))
+)
 struct MutationTests {
     /// Structures the real fixtures lack, as one clean diff: a commit
     /// preamble, every status, `Binary files`, a `GIT binary patch`,
