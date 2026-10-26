@@ -3,8 +3,10 @@ import Testing
 
 /// Added lines in hostile orders — hunks that run backwards or overlap, a
 /// path seen again below its earlier lines — come out as the plain union,
-/// in O(n log n) time. Inserting each line in place once took 9 s on a
-/// crafted 4 MB diff of backward hunks.
+/// in O(n log n) time and memory the size of the result. Inserting each
+/// line in place once took 9 s on a crafted 4 MB diff of backward hunks;
+/// the fix first kept every run out of order until its file ended, 61 MB
+/// for a 17 MB file repeating one hunk.
 extension MalformedInputTests {
     /// A diff adding one line to `f` at each of `lines`, in that order, one
     /// hunk per line: in one file, or in a file per line.
@@ -33,6 +35,31 @@ extension MalformedInputTests {
         #expect(parser.finalize().changedLines.lineSets == ["f": Set(lines)])
     }
 
+    @Test("a file revisiting its lines keeps its pending runs merged, not one per hunk")
+    func revisitedLinesStayMerged() {
+        let lines = (0..<5_000).map { $0.isMultiple(of: 2) ? 3 : 1 }
+        var parser = DiffEventParser(consumer: ChangedLines.Collector())
+        parser.consume(Array(Self.diff(adding: lines, filePerLine: false).utf8))
+        // The file is still open, so its lines are all pending.
+        #expect(parser.consumer.runs.count < ChangedLines.Collector.minimumRunLimit)
+        #expect(parser.finalize().changedLines.ranges(in: "f") == [1...1, 3...3])
+    }
+
+    @Test("lines revisited in one file come out as their union across merges of the pending runs")
+    func revisitedLinesUnion() {
+        var generator = SplitMix64(seed: 11)
+        let lines = (0..<5_000).map { _ in generator.next(in: 1...3000) }
+        #expect(ChangedLines(diff: Self.diff(adding: lines, filePerLine: false)).lineSets == ["f": Set(lines)])
+    }
+
+    @Test("added lines at the ends of the Int range neither overflow nor merge wrongly")
+    func extremeLineNumbers() {
+        // The parser caps line numbers, but events built by hand needn't be.
+        var collector = ChangedLines.Collector()
+        Self.feed([Int.max - 1, Int.max, Int.max, Int.min, Int.min + 1, 0], filePerLine: false, to: &collector)
+        #expect(collector.changedLines.ranges(in: "f") == [Int.min...(Int.min + 1), 0...0, (Int.max - 1)...Int.max])
+    }
+
     @Test("lines in any order cost about what ascending lines cost, not quadratic time")
     func lineOrderComplexity() {
         // Events go straight to the collector, so parsing time doesn't
@@ -46,23 +73,29 @@ extension MalformedInputTests {
     }
 
     private static func collectionTime(of lines: [Int], filePerLine: Bool) -> Duration {
-        let path = DiffPath(Array("f".utf8))
-        let header = FileHeader(format: .git, change: .modified, oldPath: path, newPath: path)
-        let none: [UInt8] = []
         var collector = ChangedLines.Collector()
         let elapsed = ContinuousClock().measure {
-            collector.beginFile(header, rawHeader: none.span)
-            lines.forEach { number in
-                if filePerLine {
-                    collector.endFile()
-                    collector.beginFile(header, rawHeader: none.span)
-                }
-                collector.line(LineInfo(kind: .addition, oldNumber: nil, newNumber: number), content: none.span)
-            }
-            collector.endFile()
+            feed(lines, filePerLine: filePerLine, to: &collector)
             _ = collector.changedLines
         }
         #expect(collector.changedLines.files["f"]?.ranges.count == lines.count)
         return elapsed
+    }
+
+    /// Sends `collector` the events adding a line to `f` at each of `lines`,
+    /// in that order: in one file, or in a file per line.
+    private static func feed(_ lines: [Int], filePerLine: Bool, to collector: inout ChangedLines.Collector) {
+        let path = DiffPath(Array("f".utf8))
+        let header = FileHeader(format: .git, change: .modified, oldPath: path, newPath: path)
+        let none: [UInt8] = []
+        collector.beginFile(header, rawHeader: none.span)
+        lines.forEach { number in
+            if filePerLine {
+                collector.endFile()
+                collector.beginFile(header, rawHeader: none.span)
+            }
+            collector.line(LineInfo(kind: .addition, oldNumber: nil, newNumber: number), content: none.span)
+        }
+        collector.endFile()
     }
 }
