@@ -15,6 +15,9 @@
 /// it). For huge diffs, prefer a `DiffSummary`, a `ChangedLines`, or a
 /// `DiffEventConsumer` of your own, whose memory doesn't grow with content.
 ///
+/// `render(_:)` writes it back as text: for git's output, the input byte
+/// for byte.
+///
 /// Its entry points — `Diff(diff:)` and `DiffEventParser<Diff.Collector>()`
 /// — raise the parser's line cap to 64 MiB (`ParsingOptions.fullModel`),
 /// so content is kept whole up to that length. A file abandoned as damaged

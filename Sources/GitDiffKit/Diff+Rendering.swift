@@ -46,6 +46,10 @@ extension Array where Element == UInt8 {
     /// it: for a diff parsed from git's output, the input byte for byte.
     ///
     ///     let text = [UInt8](rendering: Diff(diff: input))   // == input
+    ///
+    /// The whole text is held on top of the model (for the kernel's 74 MB
+    /// diff, 381 MB at the peak against the model's 188 MB); to write a
+    /// large diff out, stream it with `render(_:)` instead.
     public init(rendering diff: Diff) {
         var writer = DiffTextWriter(chunkSize: .max)
         writer.append(diff) { _ in }
