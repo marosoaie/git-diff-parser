@@ -105,9 +105,17 @@ struct DiffFileTests {
                 kind: .context, oldNumber: -1, newNumber: 1 << 48, endsWithCarriageReturn: true, isTruncated: true
             ),
             LineInfo(kind: .addition, oldNumber: nil, newNumber: nil),
+            LineInfo(kind: .context, oldNumber: 2, newNumber: 3, endsWithCarriageReturn: true, hasNoMarker: true),
         ]
         let lines = DiffFile.Lines(infos.map { DiffLine(info: $0, content: Self.bytes("c")) })
         #expect(lines.map(\.info) == infos)
+        let markers = [(false, false), (true, false), (true, true), (false, true)].map { marker, carriageReturn in
+            DiffLine(
+                info: infos[0], content: [],
+                hasNoNewlineAtEnd: marker, noNewlineMarkerEndsWithCarriageReturn: carriageReturn
+            )
+        }
+        #expect(Array(DiffFile.Lines(markers)) == markers)
         // The record's size is what the model's memory figure rests on.
         #expect(MemoryLayout<DiffFile.LineRecord>.stride == 32)
     }

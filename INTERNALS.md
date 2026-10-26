@@ -23,7 +23,7 @@ Parsing is layered (see [docs/diff-model.md](docs/diff-model.md)):
 - `DiffEventParser<Consumer>` splits lines, reads headers and hunks, and
   calls a `DiffEventConsumer`'s `mutating` methods: `beginFile`,
   `beginHunk`, `line`, `noNewlineAtEndOfFile`, `binaryPatchLine`, `endFile`,
-  `unrecognizedLine`, and `damage`. Line content arrives as a `Span<UInt8>`
+  `unrecognizedLine`, `damage`, and, last, `noNewlineAtEndOfInput`. Line content arrives as a `Span<UInt8>`
   into the parser's buffers, valid only during the call, so the event layer
   allocates nothing per line. The consumer is a generic parameter, so the
   calls specialize and inline.
@@ -42,8 +42,9 @@ The full model stores each file packed rather than one allocation per line
 (design doc D8). Hunk line content goes back to back into one byte arena
 per file, so a line is a 32-byte record — old and new number, the offset
 where its content ends (it starts where the previous line's ends), and a
-flags byte — and everything else (raw header, headings, binary patch
-lines, unrecognized lines) into a second arena, with records of offsets.
+two bytes of flags — and everything else (raw header, headings, binary
+patch lines, unrecognized lines) into a second arena, with records of
+offsets.
 Offsets are `Int`, so there is no per-file size limit to police. The
 public collections (`DiffFile.Hunks`, `Lines`, `TextLines`) build their
 elements on access, with content as slices of the arenas, so an element
@@ -51,6 +52,20 @@ can't be read against the wrong file's storage. Unrecognized lines keep
 their position: before the first file in `Diff.preamble`, inside a file
 before its first hunk (`leadingLines`) or after the hunk they follow
 (`trailingLines`).
+
+`Diff.render(_:)` writes the model back as unified diff text, in 64 KiB
+chunks handed to a closure, and `[UInt8](rendering:)` builds it whole. For
+git's output the text is the input byte for byte, because every byte lands
+somewhere: raw header blocks verbatim, unrecognized lines at their
+positions, hunk headers with their implicit counts, and the `\r` of every
+line as a flag — content, hunk header, and no-newline marker alike — plus
+context lines written without their space (`diff.suppressBlankEmpty`) and
+whether the input's last line ended in `\n`. A file renders from its raw
+header, never from its `FileHeader`. Each flush keeps the buffer's last
+byte back, so a final newline the input lacked can still be dropped,
+however the chunks fell. What the model doesn't keep can't come back:
+combined diffs' hunks, damaged files, bytes past the line cap, a
+localized no-newline marker's wording, and leading zeros in hunk numbers.
 
 The parser's working memory is bounded whatever the input: the line carry
 buffer by the line cap (`ParsingOptions.maximumLineLength`), and the raw
@@ -94,7 +109,7 @@ Individual lines are processed truncated to the line cap, 1 MiB by default
 `isTruncated`. This caps the carry buffer a pathological newline-free input
 could otherwise grow without limit. A `\r` before the `\n` is stripped and
 flagged per line, the same for any chunking, so CRLF diffs parse like LF
-ones.
+ones; a last line without `\n` is flagged by `noNewlineAtEndOfInput`.
 
 ## Performance
 
@@ -128,6 +143,12 @@ The collectors compared, on the library alone (a release harness reading
 500 bytes per file: its header, two paths, and array slack); the full
 model grows with the content, peaking at about 2.5× the diff.
 
+Rendering the kernel diff's model back (same harness, step 2.6) takes
+about 90 ms on top of the parse, and streaming it costs no memory beyond
+the model's: parse and `render(_:)` to standard output run in 0.29 s and
+peak at 188 MB. `[UInt8](rendering:)` holds the whole text as well, with
+its array's growth slack: 0.39 s, 381 MB.
+
 ## Validation against real-world diffs
 
 `swift test` runs two kinds of suites:
@@ -143,7 +164,8 @@ model grows with the content, peaking at about 2.5× the diff.
   (`git apply --numstat`) as an independent oracle; the summary's headers
   and both counts against `git apply --summary` and `--numstat -z`; the
   full model's counts against `--numstat -z` and its contents against the
-  event stream. Fixtures are downloaded
+  event stream; and the full model renders each diff back to its input,
+  byte for byte. Fixtures are downloaded
   from their canonical URLs and cached in
   `~/Library/Caches/git-diff-parser-tests/` (on Linux,
   `$XDG_CACHE_HOME/git-diff-parser-tests/`, falling back to `~/.cache`);
@@ -151,6 +173,18 @@ model grows with the content, peaking at about 2.5× the diff.
   before use. Nothing large is committed to the repo — keeping the clone
   free of Git LFS matters because SwiftPM consumers clone it on machines
   that may have broken or absent `git-lfs` setups.
+
+- **The git oracle repository** — two commits built with
+  `git fast-import`, so paths can hold any bytes, holding every kind of
+  change the headers describe (creations, deletions, renames, copies,
+  rewrites, mode changes, symlinks, a gitlink, binary files) and every
+  line ending (CRLF content, missing final newlines, empty context
+  lines). Each of several `git diff` variants is checked against
+  `git apply --summary` and `--numstat -z`, against `git ls-tree` for
+  every path, mode, and object ID, and for the round trip: the rendering
+  is git's diff byte for byte, and with `--binary`, `git apply --cached`
+  of it turns the old tree into exactly the new one. `git show`,
+  `git log -p`, and `git format-patch` output render back too.
 
 Set `GIT_DIFF_PARSER_SKIP_NETWORK_TESTS=1` to skip the real-world suite
 (e.g. in offline environments). Tests pass under both `swift test` and

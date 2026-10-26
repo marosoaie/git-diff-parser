@@ -40,8 +40,8 @@ extension Diff {
         }
 
         /// Flags the open file's last line.
-        public mutating func noNewlineAtEndOfFile() {
-            file?.storage.markNoNewlineAtEnd()
+        public mutating func noNewlineAtEndOfFile(endsWithCarriageReturn: Bool) {
+            file?.storage.markNoNewlineAtEnd(markerEndsWithCarriageReturn: endsWithCarriageReturn)
         }
 
         /// Copies the line into the open file's binary patch.
@@ -75,6 +75,11 @@ extension Diff {
         /// Keeps the report.
         public mutating func damage(_ report: DamageReport) {
             diff.damage.append(report)
+        }
+
+        /// Flags the diff's last line.
+        public mutating func noNewlineAtEndOfInput() {
+            diff.hasNoNewlineAtEnd = true
         }
     }
 }

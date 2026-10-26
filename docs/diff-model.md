@@ -3,7 +3,7 @@
 **Status: reviewed (plan step 2.2).** The maintainer answered the open
 questions on 2026-10-25; [Answered questions](#answered-questions) records
 the answers, and the recommendations below are updated to match. Steps 2.3
-to 2.5 built it; notes marked "as built" record where the code differs
+to 2.6 built it; notes marked "as built" record where the code differs
 from a sketch here, and what was measured. Steps
 2.3–2.7 build on what this document settles, so each section ends with a
 recommendation and its trade-offs. Claims that
@@ -203,6 +203,12 @@ public struct LineInfo: Sendable, Equatable {
     public var isTruncated: Bool              // D7
 }
 ```
+
+**As built (2.6):** `noNewlineAtEndOfFile` takes `endsWithCarriageReturn:`,
+and a ninth event, `noNewlineAtEndOfInput()`, comes last when the input's
+last line has no `\n`; `HunkHeader.endsWithCarriageReturn` and
+`LineInfo.hasNoMarker` carry the rest of what rendering back needs (see
+[Round-trip](#round-trip)).
 
 - **Ordering contract**: `beginFile`, then hunks (`beginHunk` followed
   by `line`s) or `binaryPatchLine`s, then `endFile`.
@@ -405,6 +411,8 @@ against git on the three real fixtures: the summary renders
 `git apply --numstat -z` and `--summary` byte for byte, and the full
 model's counts match numstat.
 
+### Round-trip
+
 **Round-trip (2.6) needs every byte to land somewhere.** With the design
 above, it does: header blocks (including `Binary files … differ` and
 `GIT binary patch` marker lines) are kept raw, `\r` included; content
@@ -412,16 +420,48 @@ lines keep their CR flag; unrecognized lines keep their position and CR
 flag; hunk headers keep their spelling. The property is defined as
 byte-identical for git's own output, and excludes, by design:
 
-- combined diffs (D9 keeps no content for them);
+- combined diffs (D9 keeps no content for them, so they render as their
+  header alone);
 - lines truncated by the cap (round-trip tests raise it, D7);
 - a localized `\ No newline at end of file`;
+- leading zeros in hunk header numbers, which git never writes;
 - input that only parses through recovery (damaged files).
 
-**Found in 2.5:** two details the events don't carry yet, which 2.6 has
-to add: a `\r` ending a `@@` line (`beginHunk` has no flag for it), and
-whether the input's last line ended in `\n`. Otherwise every byte lands:
-a throwaway renderer turns the full model of each real fixture back into
-its input byte for byte.
+**Found in 2.5:** two details the events didn't carry: a `\r` ending a
+`@@` line, and whether the input's last line ended in `\n`. Otherwise
+every byte landed: a throwaway renderer turned the full model of each real
+fixture back into its input byte for byte.
+
+**As built (2.6):** four details close the gaps.
+
+- `HunkHeader.endsWithCarriageReturn`, and the `\r` of a
+  `\ No newline at end of file` line
+  (`noNewlineAtEndOfFile(endsWithCarriageReturn:)`, kept as
+  `DiffLine.noNewlineMarkerEndsWithCarriageReturn`). Git writes neither
+  (it trims the heading and writes its marker with `\n`), but a diff
+  stored with CRLF line endings has both, and D7 meant to record the
+  `\r` of every line.
+- `noNewlineAtEndOfInput()`, kept as `Diff.hasNoNewlineAtEnd`, for an
+  input whose final newline an editor or a shell's `$(…)` dropped. A
+  raw header stays verbatim, so it holds its last newline or not.
+- `LineInfo.hasNoMarker`, for a context line written without its space:
+  `git diff` with `diff.suppressBlankEmpty` writes an empty one as a bare
+  `\n`, which the parser already read as context.
+
+`Diff.render(_:)` writes the model back in 64 KiB chunks, as `rethrows`
+over a caller's closure, and `[UInt8](rendering:)` builds the text whole.
+A file renders from its raw header, never from `FileHeader`, so a subset
+of files renders as `Diff(files:)` of them. Checked: the kernel, redis,
+and swift-argument-parser diffs render back byte for byte at chunk sizes
+from 4 MiB down to 1 byte (a throwaway release harness; the tests check
+4 MiB), and `git apply --check` takes each rendering
+against the real old tree (linux-6.6, redis at the compare's merge base,
+swift-argument-parser 1.0.0; its one binary file has no full index, so
+git can't apply it from the input either). Every `git diff` variant of the
+fast-import oracle repository, a `diff.suppressBlankEmpty` one included,
+and its `git show`, `git log -p`, and `git format-patch` output render back
+too, and with `--binary`, `git apply --cached` of the rendering turns the
+old tree into exactly the new one.
 
 ## 3. Content: bytes, String, or Span
 

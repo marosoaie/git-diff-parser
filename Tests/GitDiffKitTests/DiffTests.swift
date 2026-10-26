@@ -5,32 +5,6 @@ import Testing
 struct DiffTests {
     private static func bytes(_ string: String) -> ArraySlice<UInt8> { Array(string.utf8)[...] }
 
-    /// Inputs covering every kind of event. The tests take the case, not
-    /// the text, to keep swift-testing's printed arguments short.
-    enum Sample: CaseIterable {
-        case statuses
-        case streaming
-        case logWithCommits
-        case crlf
-        case binaryPatch
-        case plain
-        case combinedAndDamaged
-
-        var text: String {
-            switch self {
-            case .statuses: DiffSummaryTests.statuses
-            case .streaming: StreamingTests.fixture
-            case .logWithCommits: DiffTests.logWithCommits
-            case .crlf: DiffTests.crlf
-            case .binaryPatch: DiffTests.binaryPatch
-            case .plain: DiffTests.plain
-            case .combinedAndDamaged: DiffTests.combinedAndDamaged
-            }
-        }
-
-        var bytes: [UInt8] { Array(text.utf8) }
-    }
-
     static let logWithCommits = """
         commit aaaaaaa
         Author: A <a@example.com>
@@ -256,11 +230,11 @@ struct DiffTests {
         var collector = Diff.Collector()
         collector.line(info, content: text("no file").span)
         collector.beginHunk(HunkHeader(oldStart: 0, oldCount: 0, newStart: 1, newCount: 1), heading: text("").span)
-        collector.noNewlineAtEndOfFile()
+        collector.noNewlineAtEndOfFile(endsWithCarriageReturn: false)
         collector.endFile()
         collector.beginFile(header, rawHeader: text("raw\n").span)
         collector.line(info, content: text("before any hunk").span)
-        collector.noNewlineAtEndOfFile()
+        collector.noNewlineAtEndOfFile(endsWithCarriageReturn: false)
         collector.beginHunk(HunkHeader(oldStart: 0, oldCount: 0, newStart: 1, newCount: 1), heading: text("").span)
         collector.line(info, content: text("kept").span)
         // A second file starting without endFile closes the first.
@@ -273,5 +247,39 @@ struct DiffTests {
         #expect(diff.files[0].lines.map(\.content) == [Self.bytes("kept")])
         #expect(!diff.files[0].lines[0].hasNoNewlineAtEnd)
         #expect(diff.files[1].leadingLines.map(\.content) == [Self.bytes("after the last file")])
+    }
+}
+
+extension DiffTests {
+    /// Inputs covering every kind of event. The tests take the case, not
+    /// the text, to keep swift-testing's printed arguments short.
+    enum Sample: CaseIterable {
+        case statuses
+        case streaming
+        case logWithCommits
+        case crlf
+        case binaryPatch
+        case plain
+        case combinedAndDamaged
+        case crlfWithMarkers
+        case unterminated
+        case bareContextLine
+
+        var text: String {
+            switch self {
+            case .statuses: DiffSummaryTests.statuses
+            case .streaming: StreamingTests.fixture
+            case .logWithCommits: DiffTests.logWithCommits
+            case .crlf: DiffTests.crlf
+            case .binaryPatch: DiffTests.binaryPatch
+            case .plain: DiffTests.plain
+            case .combinedAndDamaged: DiffTests.combinedAndDamaged
+            case .crlfWithMarkers: LineEndingTests.crlfWithMarkers
+            case .unterminated: "--- a/f\n+++ b/f\n@@ -1 +1 @@\n-a\n+b"
+            case .bareContextLine: "--- a/f\n+++ b/f\n@@ -1,3 +1,3 @@\n one\n\n-two\n+TWO\n"
+            }
+        }
+
+        var bytes: [UInt8] { Array(text.utf8) }
     }
 }

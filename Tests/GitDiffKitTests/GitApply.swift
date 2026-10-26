@@ -39,6 +39,20 @@ enum GitApply {
         }
     }
 
+    /// Checks the diff at `url` with `git apply --check`, applies it to
+    /// `revision`'s tree in a scratch index of the bare `repository`, and
+    /// returns the ID of the tree that results; throws if git rejects it.
+    static func treeAfterApplying(_ url: URL, to revision: String, in repository: URL) throws -> String {
+        let index = url.deletingLastPathComponent().appendingPathComponent("apply-\(UUID().uuidString).index")
+        defer { try? FileManager.default.removeItem(at: index) }
+        let environment = ["GIT_INDEX_FILE": index.path]
+        _ = try FastImport.git(["read-tree", revision], in: repository, environment: environment)
+        _ = try FastImport.git(["apply", "--cached", "--check", url.path], in: repository, environment: environment)
+        _ = try FastImport.git(["apply", "--cached", url.path], in: repository, environment: environment)
+        let tree = try FastImport.git(["write-tree"], in: repository, environment: environment)
+        return String(decoding: tree, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Runs `git apply` with `options` on the diff at `url`.
     static func output(of options: [String], forDiffAt url: URL) throws -> Data {
         // Inside a work tree, git apply ignores every path outside the

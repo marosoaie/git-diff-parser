@@ -1,5 +1,5 @@
 /// The line ranges a hunk's `@@ -oldStart,oldCount +newStart,newCount @@`
-/// line declares.
+/// line declares, and how the line spells them.
 ///
 /// Starts and counts are at most 2⁴⁸; a header with larger numbers is
 /// rejected as damaged, so line arithmetic downstream can't overflow.
@@ -17,6 +17,11 @@ public struct HunkHeader: Sendable, Equatable {
     public var oldCountIsImplicit: Bool
     /// Whether the new range left its count out.
     public var newCountIsImplicit: Bool
+    /// Whether the `@@` line ended in `\r\n`, as every line of a diff
+    /// stored with CRLF line endings does. The `\r` is not part of the
+    /// heading; this flag renders it back. Git itself never writes one: it
+    /// trims trailing whitespace from the heading.
+    public var endsWithCarriageReturn: Bool
 
     /// Creates a header from its ranges.
     public init(
@@ -25,7 +30,8 @@ public struct HunkHeader: Sendable, Equatable {
         newStart: Int,
         newCount: Int,
         oldCountIsImplicit: Bool = false,
-        newCountIsImplicit: Bool = false
+        newCountIsImplicit: Bool = false,
+        endsWithCarriageReturn: Bool = false
     ) {
         self.oldStart = oldStart
         self.oldCount = oldCount
@@ -33,6 +39,7 @@ public struct HunkHeader: Sendable, Equatable {
         self.newCount = newCount
         self.oldCountIsImplicit = oldCountIsImplicit
         self.newCountIsImplicit = newCountIsImplicit
+        self.endsWithCarriageReturn = endsWithCarriageReturn
     }
 
     /// Upper bound for hunk starts and counts (~2.8e14). Real files are many

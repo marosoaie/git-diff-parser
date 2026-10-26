@@ -18,8 +18,10 @@ extension DiffEventParser {
         hunk.reportsDamage = isOpen
         hunk.isCombined = false
         if isOpen {
+            var header = parsed.header
+            header.endsWithCarriageReturn = line.endsWithCarriageReturn
             let heading = parsed.heading
-            consumer.beginHunk(parsed.header, heading: heading.span)
+            consumer.beginHunk(header, heading: heading.span)
         } else if case .none = file {
             report(.hunkWithoutFile)
         }
@@ -51,7 +53,7 @@ extension DiffEventParser {
             guard hunk.remainingOld > 0, hunk.remainingNew > 0 else { return endHunkEarly(line) }
             emitContext(content: bytes.dropFirst(), of: line)
         case UInt8(ascii: "\\"):
-            if !takeNoNewlineMarker(), hunk.reportsDamage {
+            if !takeNoNewlineMarker(line), hunk.reportsDamage {
                 report(.misplacedNoNewlineMarker)
             }
         case UInt8(ascii: "d") where bytes.starts(with: DiffSyntax.diffPrefix):
@@ -65,19 +67,21 @@ extension DiffEventParser {
             if !bytes.isEmpty, hunk.reportsDamage {
                 report(.missingLineMarker)
             }
-            emitContext(content: bytes, of: line)
+            emitContext(content: bytes, of: line, hasNoMarker: true)
         }
     }
 
-    private mutating func emitContext(content: ArraySlice<UInt8>, of line: RawLine) {
-        emit(.context, content: content, of: line)
+    private mutating func emitContext(content: ArraySlice<UInt8>, of line: RawLine, hasNoMarker: Bool = false) {
+        emit(.context, content: content, of: line, hasNoMarker: hasNoMarker)
         hunk.oldLine += 1
         hunk.newLine += 1
         hunk.remainingOld -= 1
         hunk.remainingNew -= 1
     }
 
-    private mutating func emit(_ kind: LineInfo.Kind, content: ArraySlice<UInt8>, of line: RawLine) {
+    private mutating func emit(
+        _ kind: LineInfo.Kind, content: ArraySlice<UInt8>, of line: RawLine, hasNoMarker: Bool = false
+    ) {
         hunk.lastContentLine = lineNumber
         guard hunk.emitsEvents else { return }
         let info = LineInfo(
@@ -85,18 +89,19 @@ extension DiffEventParser {
             oldNumber: kind == .addition ? nil : hunk.oldLine,
             newNumber: kind == .deletion ? nil : hunk.newLine,
             endsWithCarriageReturn: line.endsWithCarriageReturn,
-            isTruncated: line.isTruncated
+            isTruncated: line.isTruncated,
+            hasNoMarker: hasNoMarker
         )
         consumer.line(info, content: content.span)
     }
 
-    /// Takes a `\ No newline at end of file` line if it directly follows a
-    /// content line; the event goes out only if that line's did.
-    mutating func takeNoNewlineMarker() -> Bool {
+    /// Takes `marker`, a `\ No newline at end of file` line, if it directly
+    /// follows a content line; the event goes out only if that line's did.
+    mutating func takeNoNewlineMarker(_ marker: RawLine) -> Bool {
         guard hunk.lastContentLine == lineNumber - 1 else { return false }
         hunk.lastContentLine = -1
         if hunk.emitsEvents {
-            consumer.noNewlineAtEndOfFile()
+            consumer.noNewlineAtEndOfFile(endsWithCarriageReturn: marker.endsWithCarriageReturn)
         }
         return true
     }

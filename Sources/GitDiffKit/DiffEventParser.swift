@@ -14,7 +14,8 @@
 /// plain `diff -u`/`diff -ruN` output, and streams such as `git log -p` or
 /// `git format-patch` mail, whose commit text arrives as unrecognized lines.
 /// Line endings are `\n`; a `\r` before it is stripped and flagged, so CRLF
-/// input parses like LF input.
+/// input parses like LF input, and a last line without `\n` is flagged by
+/// `noNewlineAtEndOfInput()`.
 ///
 /// Combined diffs of merges (`diff --cc`, `diff --combined`) are
 /// recognized and skipped: each file gets `beginFile` (format `.combined`)
@@ -68,6 +69,7 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
     /// Flushes an unterminated final line, ends the open hunk and file, and
     /// returns the consumer.
     public mutating func finalize() -> Consumer {
+        let endsMidLine = carry.isPending
         flushPartialLine()
         // Damage found from here on is reported one past the last line.
         lineNumber += 1
@@ -80,6 +82,9 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
         }
         endFile()
         lineNumber -= 1
+        if endsMidLine {
+            consumer.noNewlineAtEndOfInput()
+        }
         return consumer
     }
 
@@ -124,7 +129,7 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
             pendingOldSide = line
         } else if bytes.starts(with: DiffSyntax.hunkPrefix) {
             beginHunk(line)
-        } else if bytes.first == UInt8(ascii: "\\"), takeNoNewlineMarker() {
+        } else if bytes.first == UInt8(ascii: "\\"), takeNoNewlineMarker(line) {
             return
         } else if file.hasBegun, bytes.starts(with: DiffSyntax.noNewlinePrefix) {
             // A duplicate, or one before the first hunk. Outside a file,
