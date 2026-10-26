@@ -111,6 +111,18 @@ struct RenderingTests {
         let expected = "@@ -1,2 +1 @@ f()\r\n-a\n b\r\n\\ No newline at end of file\r\n"
         #expect([UInt8](rendering: Diff(files: [bare])) == Self.bytes(expected))
         #expect([UInt8](rendering: Diff(files: [bare], hasNoNewlineAtEnd: true)) == Self.bytes(expected).dropLast(1))
+
+        // Only a context line goes without its marker.
+        let unmarked = [LineInfo.Kind.addition, .deletion, .context].map { kind in
+            let info = LineInfo(kind: kind, oldNumber: 1, newNumber: 1, hasNoMarker: true)
+            let hunk = DiffHunk(
+                header: HunkHeader(oldStart: 1, oldCount: 1, newStart: 1, newCount: 1),
+                lines: [DiffLine(info: info, content: Self.bytes("x")[...])]
+            )
+            let diff = Diff(files: [DiffFile(header: file.header, hunks: [hunk])])
+            return String(decoding: [UInt8](rendering: diff), as: UTF8.self)
+        }
+        #expect(unmarked == ["@@ -1,1 +1,1 @@\n+x\n", "@@ -1,1 +1,1 @@\n-x\n", "@@ -1,1 +1,1 @@\nx\n"])
     }
 
     @Test("a diff of some of the files renders to a diff that parses to those files")

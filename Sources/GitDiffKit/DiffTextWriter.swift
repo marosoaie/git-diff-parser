@@ -93,8 +93,10 @@ struct DiffTextWriter {
         text.append(contentsOf: String(count).utf8)
     }
 
+    /// The marker is left out only for a context line, so a hand-built
+    /// addition or deletion flagged `hasNoMarker` still says what it is.
     private mutating func append(_ line: DiffLine) {
-        if !line.info.hasNoMarker {
+        if !line.info.hasNoMarker || line.info.kind != .context {
             text.append(Self.marker(of: line.info.kind))
         }
         text.append(contentsOf: line.content)

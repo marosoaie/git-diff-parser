@@ -11,10 +11,11 @@
 /// `unrecognizedLine` and `damage` can come anywhere between those, and
 /// `noNewlineAtEndOfInput` comes last, if at all.
 ///
-/// Together the events carry the whole input, so a consumer can write it
-/// back, as `Diff.render(_:)` does — except a combined diff's hunks, a
-/// damaged file's lines, the excess of lines over the cap, and the wording
-/// of a localized `\ No newline at end of file`.
+/// Together the events carry the whole input, so a consumer that keeps
+/// them can write it back, as the full model does with `Diff.render(_:)` —
+/// except a combined diff's hunks, a damaged file's lines, the excess of
+/// lines over the cap, and the wording of a localized
+/// `\ No newline at end of file`.
 public protocol DiffEventConsumer {
     /// A file's header block is complete (before its first hunk or binary
     /// data). `rawHeader` is the block verbatim, each line with its `\r`
