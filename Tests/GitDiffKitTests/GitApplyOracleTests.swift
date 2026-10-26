@@ -100,6 +100,20 @@ struct GitApplyOracleTests {
         #expect(missing.isEmpty, "no file in the fixture is a \(missing)")
     }
 
+    @Test("the full model holds every event, the same for any chunking", arguments: variants)
+    func fullModel(variant: Variant) throws {
+        try Self.withDiff(variant) { diff, _ in
+            let bytes = try Array(Data(contentsOf: diff))
+            let model = Diff.of(bytes)
+            #expect(model.files.count > 20)
+            Oracle.expectEqualEntries(model.replayedEvents, EventRecorder.eventsWithoutDamage(in: bytes))
+            [1, 5].forEach { chunkSize in
+                let same = Diff.of(bytes, chunkSize: chunkSize) == model
+                #expect(same, "chunk size \(chunkSize)")
+            }
+        }
+    }
+
     @Test("scanning in small chunks gives the same files as scanning whole", arguments: variants)
     func chunkInvariance(variant: Variant) throws {
         try Self.withDiff(variant) { diff, _ in

@@ -54,17 +54,50 @@ struct RealWorldDiffTests {
     }
 
     @Test(
-        "headers and line counts are the same for any chunking",
+        "the full model's line counts match git apply --numstat -z, with no damage",
+        arguments: RealWorldFixture.allCases
+    )
+    func fullModelMatchesGitApply(fixture: RealWorldFixture) async throws {
+        let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
+        var parser = DiffEventParser<Diff.Collector>()
+        try Self.forEachChunk(of: diffURL) { parser.consume($0) }
+        let diff = parser.finalize().diff
+
+        #expect(diff.damage.isEmpty)
+        let files = zip(diff.files, diff.lineCounts).map { file, counts in
+            DiffSummary.File(header: file.header, addedLineCount: counts[0], deletedLineCount: counts[1])
+        }
+        Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: diffURL))
+    }
+
+    @Test(
+        "the full model holds every event of a real diff, in order",
+        arguments: [RealWorldFixture.redis, .swiftArgumentParser]
+    )
+    func fullModelHoldsEveryEvent(fixture: RealWorldFixture) async throws {
+        let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
+        let bytes = try Array(Data(contentsOf: diffURL))
+        let diff = Diff(diff: bytes)
+        #expect(diff.files.count > 100)
+        Oracle.expectEqualEntries(diff.replayedEvents, EventRecorder.eventsWithoutDamage(in: bytes))
+    }
+
+    @Test(
+        "the summary and the full model are the same for any chunking",
         arguments: [RealWorldFixture.redis, .swiftArgumentParser]
     )
     func chunkInvariance(fixture: RealWorldFixture) async throws {
         let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
         let bytes = try Array(Data(contentsOf: diffURL))
-        let whole = DiffSummary.files(in: bytes)
+        let summary = DiffSummary.of(bytes)
+        let diff = Diff.of(bytes)
         // One-byte chunks take seconds per megabyte in debug builds.
         let chunkSizes = [4093, (1 << 20) + 7] + (bytes.count < 1 << 20 ? [1] : [])
         chunkSizes.forEach { chunkSize in
-            #expect(DiffSummary.files(in: bytes, chunkSize: chunkSize) == whole, "chunk size \(chunkSize)")
+            #expect(DiffSummary.of(bytes, chunkSize: chunkSize) == summary, "chunk size \(chunkSize)")
+            // Not #expect(==): on a mismatch it would print both models.
+            let same = Diff.of(bytes, chunkSize: chunkSize) == diff
+            #expect(same, "chunk size \(chunkSize)")
         }
     }
 
