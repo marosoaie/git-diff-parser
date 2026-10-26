@@ -13,11 +13,20 @@ public struct DiffLine: Sendable, Equatable {
     /// Whether a `\ No newline at end of file` line followed it: the line
     /// ends its side's file without a newline.
     public var hasNoNewlineAtEnd: Bool
+    /// Whether that `\ No newline at end of file` line ended in `\r\n`, as
+    /// in a diff stored with CRLF line endings; git writes it with `\n`.
+    public var noNewlineMarkerEndsWithCarriageReturn: Bool
 
     /// Creates a line from its parts.
-    public init(info: LineInfo, content: ArraySlice<UInt8>, hasNoNewlineAtEnd: Bool = false) {
+    public init(
+        info: LineInfo,
+        content: ArraySlice<UInt8>,
+        hasNoNewlineAtEnd: Bool = false,
+        noNewlineMarkerEndsWithCarriageReturn: Bool = false
+    ) {
         self.info = info
         self.content = content
         self.hasNoNewlineAtEnd = hasNoNewlineAtEnd
+        self.noNewlineMarkerEndsWithCarriageReturn = noNewlineMarkerEndsWithCarriageReturn
     }
 }

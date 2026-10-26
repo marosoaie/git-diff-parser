@@ -12,6 +12,7 @@ extension Diff {
     /// the other events.
     var replayedEvents: [EventRecorder.Event] {
         preamble.map(Self.unrecognized) + files.flatMap(Self.events)
+            + (hasNoNewlineAtEnd ? [.noNewlineAtEndOfInput] : [])
     }
 
     /// Each file's added and deleted line counts, as a summary reports them.
@@ -35,7 +36,10 @@ extension Diff {
     }
 
     private static func events(of line: DiffLine) -> [EventRecorder.Event] {
-        [.line(line.info, content: Array(line.content))] + (line.hasNoNewlineAtEnd ? [.noNewlineAtEndOfFile] : [])
+        let marker: [EventRecorder.Event] = line.hasNoNewlineAtEnd
+            ? [.noNewlineAtEndOfFile(endsWithCarriageReturn: line.noNewlineMarkerEndsWithCarriageReturn)]
+            : []
+        return [.line(line.info, content: Array(line.content))] + marker
     }
 
     private static func unrecognized(_ line: DiffTextLine) -> EventRecorder.Event {

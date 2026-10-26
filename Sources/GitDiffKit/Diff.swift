@@ -30,12 +30,20 @@ public struct Diff: Sendable, Equatable {
     public var files: [DiffFile]
     /// Every damage report the parser made, in input order.
     public var damage: [DamageReport]
+    /// Whether the diff's last line has no `\n`: the input ended mid-line.
+    public var hasNoNewlineAtEnd: Bool
 
     /// Creates a diff from its parts.
-    public init(preamble: DiffFile.TextLines = [], files: [DiffFile] = [], damage: [DamageReport] = []) {
+    public init(
+        preamble: DiffFile.TextLines = [],
+        files: [DiffFile] = [],
+        damage: [DamageReport] = [],
+        hasNoNewlineAtEnd: Bool = false
+    ) {
         self.preamble = preamble
         self.files = files
         self.damage = damage
+        self.hasNoNewlineAtEnd = hasNoNewlineAtEnd
     }
 
     /// Parses a complete diff held in memory into the full model, with the

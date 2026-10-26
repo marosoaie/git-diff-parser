@@ -29,7 +29,7 @@ extension DiffEventParser {
             return endHunkEarly(line)
         }
         if bytes.first == UInt8(ascii: "\\") {
-            if !takeNoNewlineMarker() {
+            if !takeNoNewlineMarker(line) {
                 report(.misplacedNoNewlineMarker)
             }
             return

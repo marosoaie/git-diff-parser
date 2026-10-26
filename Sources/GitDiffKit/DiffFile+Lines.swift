@@ -44,7 +44,8 @@ extension DiffFile {
             return DiffLine(
                 info: record.info,
                 content: bytes[start..<record.contentEnd],
-                hasNoNewlineAtEnd: record.flags.contains(.hasNoNewlineAtEnd)
+                hasNoNewlineAtEnd: record.flags.contains(.hasNoNewlineAtEnd),
+                noNewlineMarkerEndsWithCarriageReturn: record.flags.contains(.noNewlineMarkerEndsWithCarriageReturn)
             )
         }
 
