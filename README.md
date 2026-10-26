@@ -52,7 +52,33 @@ changes.contains(line: 42, in: "Sources/App/Foo.swift")  // binary search
 changes.contains(line: 42, in: "Sources/App/Foo.swift", tolerance: 2)
 ```
 
-For anything beyond changed lines, implement a `DiffEventConsumer` — every
+Two more collectors see more of the diff. Both stream too, through
+`DiffEventParser(consumer: DiffSummary.Collector())` and
+`DiffEventParser<Diff.Collector>()`:
+
+```swift
+// Each file's status, paths, and line counts — what `git apply --summary`
+// and `--numstat` report. Memory grows with the number of files.
+let summary = DiffSummary(diff: diffText)
+for file in summary.files {
+    let path = file.header.newPath ?? file.header.oldPath
+    print(file.header.change, path?.string ?? "", file.addedLineCount, file.deletedLineCount)
+}
+
+// The full model: hunks and every line's content, as bytes. Memory grows
+// with the diff's content (about 2.5× its size).
+let diff = Diff(diff: diffText)
+for file in diff.files {
+    for hunk in file.hunks {
+        for line in hunk.lines where line.info.kind == .addition {
+            print(line.info.newNumber ?? 0, String(decoding: line.content, as: UTF8.self))
+        }
+    }
+}
+```
+
+Paths in both are `DiffPath`s, git's exact bytes; `string` decodes them
+lossily. For anything else, implement a `DiffEventConsumer` — every
 method has a default, so take only the events you need — and drive it with
 a `DiffEventParser`:
 
@@ -72,6 +98,9 @@ base (`git diff origin/main...HEAD`), or download it from GitHub
 (`https://github.com/OWNER/REPO/pull/N.diff`).
 
 ## Semantics
+
+These are `ChangedLines`' rules; the summary and the full model list every
+file, deleted and binary ones included.
 
 - Line numbers are **new-side** (post-change) numbers — the ones build logs
   and GitHub's PR view use.

@@ -2,7 +2,9 @@
 
 **Status: reviewed (plan step 2.2).** The maintainer answered the open
 questions on 2026-10-25; [Answered questions](#answered-questions) records
-the answers, and the recommendations below are updated to match. Steps
+the answers, and the recommendations below are updated to match. Steps 2.3
+to 2.5 built it; notes marked "as built" record where the code differs
+from a sketch here, and what was measured. Steps
 2.3–2.7 build on what this document settles, so each section ends with a
 recommendation and its trade-offs. Claims that
 decide a recommendation are backed by throwaway release-mode measurements,
@@ -360,6 +362,15 @@ public struct DiffLine: Sendable, Equatable {
 // slice per line would retain the arena once per line and double the record.
 ```
 
+**As built (2.5):** the storage is as sketched — packed records with
+offsets into per-file arenas — but `DiffLine` is a value, `info`,
+`content`, and `hasNoNewlineAtEnd`, that the collection `DiffFile.Lines`
+builds on access, with `content` a slice of the file's arena. Nothing
+stores a slice per line, and unlike a `content(of:)` handle, a line can't
+be read against the wrong file's arena. Hunks (`DiffFile.Hunks`, elements
+`DiffHunk`) and verbatim lines (`DiffFile.TextLines`, elements
+`DiffTextLine`) work the same way.
+
 `\ No newline at end of file` is its own event because it follows the
 line it modifies; attaching it to the line event would need one line of
 lookahead, which means copying lines that straddle chunks. Its text is
@@ -382,6 +393,18 @@ round-trip exclusions below.
   keeps the lines before the first file (a `git show` commit header).
   Memory grows with the diff's content; see D8.
 
+**As built (2.5):** `DiffSummary` has `files` (each a `header`,
+`addedLineCount`, and `deletedLineCount`) and `damage`; `Diff` has
+`preamble`, `files`, and `damage`. Both keep every damage report in input
+order, and both list combined files (format `.combined`, no counts, no
+hunks). A `DiffFile` has `header`, `rawHeader`, `binaryPatchLines`,
+`leadingLines` (unrecognized lines before its first hunk), `hunks`, and
+`lines`; a `DiffHunk` has `header`, `heading`, `lines`, and
+`trailingLines` (unrecognized lines after it). Both results check out
+against git on the three real fixtures: the summary renders
+`git apply --numstat -z` and `--summary` byte for byte, and the full
+model's counts match numstat.
+
 **Round-trip (2.6) needs every byte to land somewhere.** With the design
 above, it does: header blocks (including `Binary files … differ` and
 `GIT binary patch` marker lines) are kept raw, `\r` included; content
@@ -393,6 +416,12 @@ byte-identical for git's own output, and excludes, by design:
 - lines truncated by the cap (round-trip tests raise it, D7);
 - a localized `\ No newline at end of file`;
 - input that only parses through recovery (damaged files).
+
+**Found in 2.5:** two details the events don't carry yet, which 2.6 has
+to add: a `\r` ending a `@@` line (`beginHunk` has no flag for it), and
+whether the input's last line ended in `\n`. Otherwise every byte lands:
+a throwaway renderer turns the full model of each real fixture back into
+its input byte for byte.
 
 ## 3. Content: bytes, String, or Span
 
@@ -495,6 +524,18 @@ record is 40 bytes (1.6M lines = 65 MB); with 32-bit offsets the sketch's
 record is about 24 bytes, at the cost of a per-file 4 GiB limit to check
 (over it, the file is abandoned as damaged). 2.5 documents the result: the full model takes about 2.5×
 the diff's size.
+
+**As built (2.5):** hunk line content has its own arena per file, back to
+back, so a record stores only where its content ends (it starts where the
+previous line's ends): old and new number, that offset, and a flags byte,
+32 bytes with `Int` offsets. With `Int` offsets there is no 4 GiB limit
+to police; everything else (raw header, headings, binary patch and
+unrecognized lines) shares a second arena. On the kernel diff, release
+build, 4 MiB chunks: the full model builds in 0.20 s (`ChangedLines`:
+0.11 s) and peaks at 187 MB RSS, 2.5× the 74 MB input; six concatenated
+copies (443 MB) peak at 1.1 GB. Trimming each file's arrays to size when
+it ends saved only 13 MB and would raise the transient peak of a single
+huge file, so the arrays keep their growth slack.
 
 ## 4. Special inputs
 

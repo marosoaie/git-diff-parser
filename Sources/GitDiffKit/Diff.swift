@@ -5,15 +5,15 @@
 ///     for file in diff.files {
 ///         for line in file.lines where line.info.kind == .addition {
 ///             let text = String(decoding: line.content, as: UTF8.self)
-///             print(file.header.newPath ?? "", line.info.newNumber ?? 0, text)
+///             print(file.header.newPath?.string ?? "", line.info.newNumber ?? 0, text)
 ///         }
 ///     }
 ///
 /// **Memory grows with the diff's content**: the model keeps every byte of
-/// it, packed per file (about 1.7× the diff's size for the Linux kernel's
-/// 70 MB release diff). For huge diffs, prefer a `DiffSummary`, a
-/// `ChangedLines`, or a `DiffEventConsumer` of your own, whose memory
-/// doesn't grow with content.
+/// it, packed per file, and peaks at about 2.5× the diff's size (187 MB
+/// for the Linux kernel's 74 MB release diff, 1.1 GB for six copies of
+/// it). For huge diffs, prefer a `DiffSummary`, a `ChangedLines`, or a
+/// `DiffEventConsumer` of your own, whose memory doesn't grow with content.
 ///
 /// Its entry points — `Diff(diff:)` and `DiffEventParser<Diff.Collector>()`
 /// — raise the parser's line cap to 64 MiB (`ParsingOptions.fullModel`),

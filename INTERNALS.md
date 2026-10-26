@@ -27,9 +27,30 @@ Parsing is layered (see [docs/diff-model.md](docs/diff-model.md)):
   into the parser's buffers, valid only during the call, so the event layer
   allocates nothing per line. The consumer is a generic parameter, so the
   calls specialize and inline.
-- Collectors are consumers that keep what they need. `ChangedLines.Collector`
-  records added lines per file; `DiffParser` is a thin facade over it, kept
-  for 0.1's API.
+- Collectors are consumers that keep what they need, from least to most:
+  - `ChangedLines.Collector` records added lines per file; `DiffParser` is
+    a thin facade over it, kept for 0.1's API.
+  - `DiffSummary.Collector` keeps each file's `FileHeader` and its added
+    and deleted line counts. Its memory grows with the file count, not the
+    content.
+  - `Diff.Collector` keeps everything: the full model, `Diff`, whose
+    memory grows with the diff's content (about 2.5× its size). Its entry
+    points raise the line cap to 64 MiB (`ParsingOptions.fullModel`).
+  The summary and the full model keep every damage report in input order.
+
+The full model stores each file packed rather than one allocation per line
+(design doc D8). Hunk line content goes back to back into one byte arena
+per file, so a line is a 32-byte record — old and new number, the offset
+where its content ends (it starts where the previous line's ends), and a
+flags byte — and everything else (raw header, headings, binary patch
+lines, unrecognized lines) into a second arena, with records of offsets.
+Offsets are `Int`, so there is no per-file size limit to police. The
+public collections (`DiffFile.Hunks`, `Lines`, `TextLines`) build their
+elements on access, with content as slices of the arenas, so an element
+can't be read against the wrong file's storage. Unrecognized lines keep
+their position: before the first file in `Diff.preamble`, inside a file
+before its first hunk (`leadingLines`) or after the hunk they follow
+(`trailingLines`).
 
 The parser's working memory is bounded whatever the input: the line carry
 buffer by the line cap (`ParsingOptions.maximumLineLength`), and the raw
@@ -94,6 +115,19 @@ result itself (12k paths, ~250k ranges), not the diff. Measurements use
 `/usr/bin/time -l` on release builds; performance-relevant changes are
 re-benchmarked on these fixtures before merging (see AGENTS.md).
 
+The collectors compared, on the library alone (a release harness reading
+4 MiB chunks, without the CLI's JSON; Apple M4, Swift 6.4, step 2.5):
+
+| Collector | kernel diff (74 MB, 13,479 files) | 6× kernel diff (443 MB) |
+|---|---|---|
+| `ChangedLines` | 0.11 s, 22 MB | 0.56 s, 19 MB |
+| `DiffSummary` | 0.13 s, 24 MB | 0.76 s, 59 MB |
+| `Diff` (full model) | 0.20 s, 187 MB | 1.25 s, 1.1 GB |
+
+`ChangedLines` stays flat; the summary grows with the file count (about
+500 bytes per file: its header, two paths, and array slack); the full
+model grows with the content, peaking at about 2.5× the diff.
+
 ## Validation against real-world diffs
 
 `swift test` runs two kinds of suites:
@@ -106,7 +140,10 @@ re-benchmarked on these fixtures before merging (see AGENTS.md).
   patch (~70 MB), GitHub's redis 7.0→7.2 compare diff (renames), and
   swift-argument-parser's 1.0→1.5 compare diff, then cross-check every
   per-file changed-line count against git's own patch parser
-  (`git apply --numstat`) as an independent oracle. Fixtures are downloaded
+  (`git apply --numstat`) as an independent oracle; the summary's headers
+  and both counts against `git apply --summary` and `--numstat -z`; the
+  full model's counts against `--numstat -z` and its contents against the
+  event stream. Fixtures are downloaded
   from their canonical URLs and cached in
   `~/Library/Caches/git-diff-parser-tests/` (on Linux,
   `$XDG_CACHE_HOME/git-diff-parser-tests/`, falling back to `~/.cache`);
