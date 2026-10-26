@@ -11,7 +11,8 @@ import Testing
 ///
 /// Each seed picks a window and an edit, the same on every platform. A
 /// failure names its seed; to rerun some, set
-/// `GIT_DIFF_PARSER_MUTATION_SEEDS` to a seed or a range (`0..<100000`).
+/// `GIT_DIFF_PARSER_MUTATION_SEEDS` to a seed or a range (`0..<100000`,
+/// quoted in zsh).
 /// A trap kills the run before it can say which seed did it: set
 /// `GIT_DIFF_PARSER_MUTATION_TRACE=1` to print each seed to stderr before
 /// it runs.
@@ -105,8 +106,7 @@ struct MutationTests {
         let perWindow = mutationsPerWindow
         // A stride, not a range: over a collection, the lazy `flatMap` would
         // run windows again and again to find its indices.
-        let windowCount = (seeds.upperBound + perWindow - 1) / perWindow
-        let windows = stride(from: seeds.lowerBound / perWindow, to: windowCount, by: 1)
+        let windows = stride(from: seeds.lowerBound / perWindow, through: (seeds.upperBound - 1) / perWindow, by: 1)
         let failures = windows.lazy.flatMap { window -> [String] in
             // Seeded negative, so a window's numbers aren't any mutation's.
             var windowGenerator = SplitMix64(seed: -1 - window)
@@ -121,16 +121,17 @@ struct MutationTests {
                 case .success(let check):
                     var generator = SplitMix64(seed: seed)
                     let mutation = Mutation.random(in: check.window, using: &generator)
-                    let failures = check.failures(of: mutation, using: &generator)
+                    let mutationFailures = check.failures(of: mutation, using: &generator)
                     // Odd seeds then pile more edits on top.
                     let pileFailures = seed.isMultiple(of: 2) ? [] : MutationCheck.failures(
                         ofDamaged: Mutation.piled(onto: mutation.applied(to: check.window.bytes), using: &generator),
                         using: &generator
                     ).map { "with more edits piled on, \($0)" }
-                    guard !(failures + pileFailures).isEmpty else { return nil }
+                    let failures = mutationFailures + pileFailures
+                    guard !failures.isEmpty else { return nil }
                     return """
                         \(name) seed \(seed) (GIT_DIFF_PARSER_MUTATION_SEEDS=\(seed)), \(mutation): \
-                        \((failures + pileFailures).joined(separator: "; "))
+                        \(failures.joined(separator: "; "))
                         """
                 }
             }
@@ -147,9 +148,10 @@ struct MutationTests {
         let range = ["..<", "..."].lazy.compactMap { separator -> Range<Int>? in
             let parts = text.components(separatedBy: separator)
             guard parts.count == 2, let lower = Int(parts[0]), let upper = Int(parts[1]) else { return nil }
-            let end = separator == "..<" ? upper : upper + 1
+            // `&+`: past `Int.max`, the range is rejected rather than trapping.
+            let end = separator == "..<" ? upper : upper &+ 1
             return 0 <= lower && lower < end ? lower..<end : nil
         }.first
-        return range ?? Int(text).flatMap { $0 >= 0 ? $0..<($0 + 1) : nil } ?? defaultSeeds
+        return range ?? Int(text).flatMap { 0 <= $0 && $0 < Int.max ? $0..<($0 + 1) : nil } ?? defaultSeeds
     }
 }
