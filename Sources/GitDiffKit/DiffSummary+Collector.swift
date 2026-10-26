@@ -1,9 +1,11 @@
 extension DiffSummary {
-    /// Collects a `DiffSummary` from parser events.
+    /// Collects a ``DiffSummary`` from parser events.
     ///
-    ///     var parser = DiffEventParser(consumer: DiffSummary.Collector())
-    ///     while let chunk = readSomeBytes() { parser.consume(chunk) }
-    ///     let summary = parser.finalize().summary
+    /// ```swift
+    /// var parser = DiffEventParser(consumer: DiffSummary.Collector())
+    /// while let chunk = readSomeBytes() { parser.consume(chunk) }
+    /// let summary = parser.finalize().summary
+    /// ```
     ///
     /// It counts lines without looking at their content, so the parser's
     /// default line cap is enough: a truncated line still counts once.

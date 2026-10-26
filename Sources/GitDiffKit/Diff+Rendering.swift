@@ -2,7 +2,9 @@ extension Diff {
     /// Writes the diff back as unified diff text, handing it to `write` in
     /// chunks of about 64 KiB, so the text never has to fit in memory.
     ///
-    ///     try diff.render { chunk in try handle.write(contentsOf: chunk) }
+    /// ```swift
+    /// try diff.render { chunk in try handle.write(contentsOf: chunk) }
+    /// ```
     ///
     /// For a diff parsed from `git diff`, `git show`, `git log -p`, or
     /// `git format-patch` output, or from plain `diff -u`, the text is the
@@ -42,10 +44,12 @@ extension Diff {
 }
 
 extension Array where Element == UInt8 {
-    /// Creates the unified diff text of `diff`, as `Diff.render(_:)` writes
+    /// Creates the unified diff text of `diff`, as ``Diff/render(_:)`` writes
     /// it: for a diff parsed from git's output, the input byte for byte.
     ///
-    ///     let text = [UInt8](rendering: Diff(diff: input))   // == input
+    /// ```swift
+    /// let text = [UInt8](rendering: Diff(diff: input))   // == input
+    /// ```
     ///
     /// The whole text is held on top of the model (for the kernel's 74 MB
     /// diff, 381 MB at the peak against the model's 188 MB); to write a

@@ -2,7 +2,7 @@
 /// or copies it.
 ///
 /// Orthogonal to content changes, mode changes, and binary-ness, which
-/// `FileHeader` records separately: a rename can also edit the file.
+/// ``FileHeader`` records separately: a rename can also edit the file.
 public enum Change: Sendable, Equatable {
     /// The file is created (`new file mode`, or `--- /dev/null`).
     case added

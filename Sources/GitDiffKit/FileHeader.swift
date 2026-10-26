@@ -11,7 +11,7 @@ public struct FileHeader: Sendable, Equatable {
         /// `diff --git`, with extended headers.
         case git
         /// `diff --cc` or `diff --combined`, a merge against `parents`
-        /// parents. Recognized and skipped in 0.2: only the result side of
+        /// parents. Recognized and skipped: only the result side of
         /// the header is parsed (new path, mode, and object ID), and its
         /// hunks produce no line events. For the lines a merge changed,
         /// diff against its first parent (`--diff-merges=first-parent`).

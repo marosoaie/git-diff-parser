@@ -1,7 +1,7 @@
 /// One line of a hunk in the full model: what it is, where it sits, and its
 /// content.
 ///
-/// A `DiffFile` stores its lines packed and hands out `DiffLine` values on
+/// A ``DiffFile`` stores its lines packed and hands out `DiffLine` values on
 /// access; `content` is a slice of the file's storage.
 public struct DiffLine: Sendable, Equatable {
     /// Which side the line belongs to, its old and new numbers, and its

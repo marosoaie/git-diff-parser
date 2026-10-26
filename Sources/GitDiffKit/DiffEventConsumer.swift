@@ -1,9 +1,10 @@
 /// Receives a diff's structure as it streams past.
 ///
-/// A `DiffEventParser` calls these in input order. Every method has an
+/// A ``DiffEventParser`` calls these in input order. Every method has an
 /// empty default, so a consumer implements only what it needs. Span
 /// arguments point into the parser's buffers and are valid only during the
-/// call; keep them with `[UInt8](copying:)` or `String(decodingLossily:)`.
+/// call; keep them with ``Swift/Array/init(copying:)`` or
+/// ``Swift/String/init(decodingLossily:)``.
 ///
 /// Ordering: `beginFile`, then hunks (`beginHunk` followed by `line`s) or
 /// `binaryPatchLine`s, then `endFile`; every `beginFile` gets its
@@ -12,7 +13,7 @@
 /// `noNewlineAtEndOfInput` comes last, if at all.
 ///
 /// Together the events carry the whole input, so a consumer that keeps
-/// them can write it back, as the full model does with `Diff.render(_:)` —
+/// them can write it back, as the full model does with ``Diff/render(_:)`` —
 /// except a combined diff's hunks, a damaged file's lines, the excess of
 /// lines over the cap, and the wording of a localized
 /// `\ No newline at end of file`.

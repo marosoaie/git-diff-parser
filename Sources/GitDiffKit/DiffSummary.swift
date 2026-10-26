@@ -1,17 +1,19 @@
 /// Each file a diff touches, with its header and how many lines it adds and
 /// deletes: what `git apply --summary` and `--numstat` report.
 ///
-///     let summary = DiffSummary(diff: diffText)
-///     summary.files.map { ($0.header.newPath, $0.addedLineCount) }
+/// ```swift
+/// let summary = DiffSummary(diff: diffText)
+/// let deleted = summary.files.filter { $0.header.change == .deleted }
+/// ```
 ///
 /// Memory grows with the number of files, not with the diff's content, so
 /// it suits diffs of any size; stream large ones through a
-/// `DiffEventParser` with a `DiffSummary.Collector`.
+/// ``DiffEventParser`` with a ``DiffSummary/Collector``.
 ///
 /// Files come in input order. A file abandoned as damaged is missing, and
-/// its `DamageReport` is in `damage`. Combined diffs of merges are listed
+/// its ``DamageReport`` is in ``damage``. Combined diffs of merges are listed
 /// with format `.combined` and no line counts, because their hunks are
-/// skipped (see `FileHeader.Format.combined`).
+/// skipped (see ``FileHeader/Format-swift.enum/combined(parents:)``).
 public struct DiffSummary: Sendable, Equatable {
     /// One file of the diff.
     public struct File: Sendable, Equatable {
@@ -46,7 +48,7 @@ public struct DiffSummary: Sendable, Equatable {
     }
 
     /// Summarizes a complete diff held in memory. For large inputs, prefer
-    /// streaming chunks through a `DiffEventParser` with a `Collector`.
+    /// streaming chunks through a ``DiffEventParser`` with a ``Collector``.
     public init(diff: String) {
         var parser = DiffEventParser(consumer: Collector())
         parser.consume(diff)

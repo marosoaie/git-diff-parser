@@ -19,7 +19,7 @@ public struct LineInfo: Sendable, Equatable {
     /// Whether the line ended in `\r\n`. The `\r` is not part of the
     /// content, so CRLF diffs parse like LF ones; this flag renders it back.
     public var endsWithCarriageReturn: Bool
-    /// Whether the line was longer than `ParsingOptions.maximumLineLength`
+    /// Whether the line was longer than ``ParsingOptions/maximumLineLength``
     /// and was cut to that many bytes; the cap counts the marker column, so
     /// the content keeps one byte less.
     public var isTruncated: Bool

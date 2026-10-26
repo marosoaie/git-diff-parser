@@ -40,6 +40,15 @@ jobs:
           which swiftlint || brew install swiftlint
           swiftlint lint --quiet --reporter github-actions-logging
 
+      # Fails on any DocC warning, such as a broken symbol link. Derived
+      # data goes outside .build, which the cache above saves.
+      - name: Documentation
+        if: ${{ !cancelled() }}
+        run: >-
+          xcodebuild docbuild -scheme git-diff-parser -destination platform=macOS
+          -derivedDataPath "$RUNNER_TEMP/docs" -quiet
+          OTHER_DOCC_FLAGS=--warnings-as-errors
+
   linux-tests:
     runs-on: ubuntu-latest
     container: swift:6.2

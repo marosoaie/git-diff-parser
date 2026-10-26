@@ -1,135 +1,164 @@
 # git-diff-parser
 
-A streaming, zero-dependency Swift parser for unified git diffs: which files
-does a diff touch, and on which lines?
+[![CI](https://github.com/marosoaie/git-diff-parser/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marosoaie/git-diff-parser/actions/workflows/ci.yml)
 
-> **Status: pre-release (0.x).** The API is growing from changed-line ranges
-> into a full diff model (file status, renames, hunks, line content), so
-> expect breaking changes before 1.0.
+**GitDiffKit** is a Swift library that reads unified git diffs — the
+output of `git diff`, `git show`, `git log -p`, `git format-patch`, a
+pull request's `.diff`, or plain `diff -u` — and tells you what they
+change: which lines each file adds, what happened to each file, or the
+whole diff with every line's content.
 
-- **Streaming.** Feed chunks of any size, split anywhere — even inside a
-  multi-byte UTF-8 character. Results are byte-for-byte identical for any
-  chunking, and memory scales with the number of edits, not the size of the
-  diff: the 70 MB Linux 6.6→6.7 release diff parses in ~0.2 s with flat
-  memory.
-- **Safe on hostile input.** Malformed, truncated, or adversarial diffs
-  never trap: arithmetic is overflow-checked, damage stays contained to the
-  broken file, and the parser picks up again at the next file header.
-- **Validated against git itself.** Per-file results are cross-checked
-  against `git apply --numstat` on the Linux kernel, redis, and
-  swift-argument-parser diffs, and the full model renders each of them
-  back to its input, byte for byte.
-- **Swift 6.2 strict concurrency**, `Sendable` model types, no
-  dependencies.
+It streams: the parser's own memory stays bounded however large the
+diff, and what the result keeps is up to the collector you pick. It has no
+dependencies and doesn't import Foundation, so it runs on every Apple
+platform and on Linux. And it never crashes on a damaged diff: it
+repairs what it can, skips what it can't, and tells you which.
 
-## Installation
+> **Pre-release (0.x).** The API can still change between minor
+> versions until 1.0; [CHANGELOG.md](CHANGELOG.md) lists every change.
+
+## Quick start
+
+Add the package to your `Package.swift`:
 
 ```swift
-// Package.swift
-.package(url: "https://github.com/marosoaie/git-diff-parser.git", from: "0.1.0"),
-// target dependency:
-.product(name: "GitDiffKit", package: "git-diff-parser"),
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "ReviewBot",
+    platforms: [.macOS(.v26)],
+    dependencies: [
+        .package(url: "https://github.com/marosoaie/git-diff-parser.git", from: "0.1.0"),
+    ],
+    targets: [
+        .executableTarget(
+            name: "ReviewBot",
+            dependencies: [.product(name: "GitDiffKit", package: "git-diff-parser")]
+        ),
+    ]
+)
 ```
 
-Requires Swift 6.2+. Pure Swift with no Foundation import, so it builds on
-every Apple platform and on Linux; CI tests macOS and Ubuntu.
-
-## Usage
+Then parse a diff, such as the output of `git diff origin/main...HEAD`,
+and ask about its lines:
 
 ```swift
 import GitDiffKit
 
-// Whole diff in memory:
 let changes = ChangedLines(diff: diffText)
-
-// Or stream it — [UInt8], ArraySlice<UInt8>, or String chunks:
-var parser = DiffParser()
-while let chunk = nextChunk() { parser.consume(chunk) }
-let streamed = parser.finalize()                         // == changes
-
-changes.sortedPaths                                      // ["Sources/App/Foo.swift", …]
-changes.ranges(in: "Sources/App/Foo.swift")              // [11...12, 40...40]
-changes.contains(line: 42, in: "Sources/App/Foo.swift")  // binary search
-changes.contains(line: 42, in: "Sources/App/Foo.swift", tolerance: 2)
+let paths = changes.sortedPaths   // ["README.md", "Sources/App/Greeting.swift"]
+let greeting = changes.ranges(in: "Sources/App/Greeting.swift")   // [2...3]
+let isChanged = changes.contains(line: 3, in: "Sources/App/Greeting.swift")   // true
 ```
 
-Two more collectors see more of the diff. Both stream too, through
-`DiffEventParser(consumer: DiffSummary.Collector())` and
-`DiffEventParser<Diff.Collector>()`:
+The values in the comments are for the small diff in
+[Getting Started](Sources/GitDiffKit/GitDiffKit.docc/GettingStarted.md),
+which edits `Greeting.swift`, adds a line to `README.md`, and deletes
+another file. Line numbers are new-side numbers, the ones in build logs
+and in GitHub's pull request view, so `contains(line:in:)` tells a
+linter whether a warning is on a line the change touched.
+
+## Three collectors
+
+Keep only as much of the diff as your question needs:
+
+| Collector | Keeps | Memory grows with | Kernel diff (74 MB) |
+|---|---|---|---|
+| `ChangedLines` | Each file's added lines, as ranges | The number of edits | 0.11 s, 22 MB |
+| `DiffSummary` | Each file's status (added, deleted, renamed, copied, mode change, binary), paths, and line counts | The number of files | 0.13 s, 24 MB |
+| `Diff` | Everything: hunks and every line's content; renders git's output back byte for byte, merges aside | The diff's content, about 2.5× its size | 0.20 s, 187 MB |
+
+Times and peak memory are for the Linux 6.6→6.7 release diff (13,479
+files), read in 4 MiB chunks by a release build on an Apple M4.
 
 ```swift
-// Each file's status, paths, and line counts — what `git apply --summary`
-// and `--numstat` report. Memory grows with the number of files.
 let summary = DiffSummary(diff: diffText)
-for file in summary.files {
+summary.files.forEach { file in
     let path = file.header.newPath ?? file.header.oldPath
-    print(file.header.change, path?.string ?? "", file.addedLineCount, file.deletedLineCount)
+    print(file.header.change, path?.string ?? "?", file.addedLineCount, file.deletedLineCount)
 }
-
-// The full model: hunks and every line's content, as bytes. Memory grows
-// with the diff's content (about 2.5× its size).
-let diff = Diff(diff: diffText)
-for file in diff.files {
-    for hunk in file.hunks {
-        for line in hunk.lines where line.info.kind == .addition {
-            print(line.info.newNumber ?? 0, String(decoding: line.content, as: UTF8.self))
-        }
-    }
-}
-
-// And back to text: for git's output, the input byte for byte. Stream it
-// in chunks, or build it whole.
-try diff.render { chunk in try output.write(contentsOf: chunk) }
-let text = [UInt8](rendering: diff)
+// modified Sources/App/Greeting.swift 2 1
+// modified README.md 1 0
+// deleted Sources/App/Legacy.swift 0 2
 ```
 
-Paths in both are `DiffPath`s, git's exact bytes; `string` decodes them
-lossily. For anything else, implement a `DiffEventConsumer` — every
-method has a default, so take only the events you need — and drive it with
-a `DiffEventParser`:
+Each collector streams: feed a `DiffEventParser` chunks of any size,
+split anywhere, and get the same result as from the whole text:
 
 ```swift
-struct DamageLog: DiffEventConsumer {
-    var reports: [DamageReport] = []
-    mutating func damage(_ report: DamageReport) { reports.append(report) }
+var parser = DiffEventParser(consumer: DiffSummary.Collector())
+while let chunk = readSomeBytes() {
+    parser.consume(chunk)
 }
-
-var events = DiffEventParser(consumer: DamageLog())
-events.consume(diffBytes)
-let reports = events.finalize().reports   // where the input was damaged
+let summary = parser.finalize().summary
 ```
 
-Get a pull request's own changes with a three-dot diff against the merge
-base (`git diff origin/main...HEAD`), or download it from GitHub
-(`https://github.com/OWNER/REPO/pull/N.diff`).
+For anything else, implement a `DiffEventConsumer` — every method has a
+default, so it takes only the events it needs.
 
-## Semantics
+## What it reads
 
-These are `ChangedLines`' rules; the summary and the full model list every
-file, deleted and binary ones included.
+- `git diff` with every extended header: creations, deletions, renames
+  and copies with their similarity, mode changes, rewrites, binary files
+  (`GIT binary patch` kept, not decoded), and object IDs, SHA-1 or
+  SHA-256.
+- Paths with any bytes: git's quoting is undone, and the summary and the
+  full model keep each path as the exact bytes git wrote.
+- `git show`, `git log -p`, and `git format-patch` streams, whose commit
+  messages and mail headers the full model keeps in place.
+- Plain `diff -u` and `diff -ruN`, including GNU diff's epoch timestamps,
+  which mark a created or deleted file.
+- CRLF line endings and missing final newlines, recorded per line.
+- Merge commits' combined diffs (`diff --cc`) are recognized and skipped:
+  they contribute no lines. Diff a merge against its first parent
+  (`--diff-merges=first-parent`) to see its changes.
 
-- Line numbers are **new-side** (post-change) numbers — the ones build logs
-  and GitHub's PR view use.
-- Only added lines are recorded; git represents a modified line as a removal
-  plus an addition, so additions cover both. Deleted lines can't carry
-  diagnostics and are ignored.
-- Deleted and binary files never appear; renamed files appear under their new
-  path, and only if they contain edits.
-- Paths are repo-relative. git's C-style quoting is undone, and `a/`/`b/`
-  (or mnemonic `c/i/o/w`) prefixes are stripped — but a genuine single-letter
-  directory in `--no-prefix` output is kept.
-- CRLF diffs parse identically to LF. Lines longer than 1 MiB are processed
-  truncated, so pathological input can't grow memory without bound.
+Malformed, truncated, or adversarial input never traps or throws. The
+parser repairs damage locally or abandons the damaged file, picks up
+again at the next file, and reports each case as a `DamageReport`; its
+own buffers stay bounded however long a line or header block runs.
+Seeded mutation tests and a libFuzzer target check these guarantees;
+[SECURITY.md](SECURITY.md) has the details.
+
+Results are checked against git: on the Linux kernel, redis, and
+swift-argument-parser diffs, every file's line counts match
+`git apply --numstat`, headers match `git apply --summary`, and the full
+model renders each diff back to its input byte for byte.
+
+## Requirements
+
+- Swift 6.2 or later.
+- macOS, iOS, tvOS, watchOS, or visionOS 26, whose standard library has
+  `Span`; or Linux. CI tests macOS and Ubuntu (the `swift:6.2` image).
+- No dependencies.
 
 ## Documentation
 
-- [INTERNALS.md](INTERNALS.md) — streaming design, benchmarks, and how the
-  parser is validated.
-- [AGENTS.md](AGENTS.md) — contribution conventions and coding style, for
-  humans and coding agents alike.
+The DocC catalog in
+[Sources/GitDiffKit/GitDiffKit.docc](Sources/GitDiffKit/GitDiffKit.docc)
+has the articles — [Getting Started](Sources/GitDiffKit/GitDiffKit.docc/GettingStarted.md),
+[Choosing a Collector](Sources/GitDiffKit/GitDiffKit.docc/ChoosingACollector.md),
+[Streaming Large Diffs](Sources/GitDiffKit/GitDiffKit.docc/Streaming.md),
+and [Handling Damaged Input](Sources/GitDiffKit/GitDiffKit.docc/DamagedInput.md)
+— and every public symbol is documented. To read it rendered, open the
+package in Xcode and choose Product › Build Documentation, or run:
 
-Build/lint tooling built on this library — filtering diagnostics to the
-lines a PR touches — lives in
+```sh
+xcodebuild docbuild -scheme git-diff-parser -destination platform=macOS -derivedDataPath .build/docs
+```
+
+and open `.build/docs/Build/Products/Debug/GitDiffKit.doccarchive`.
+
+- [INTERNALS.md](INTERNALS.md): how the parser works, its benchmarks,
+  and how it is validated.
+- [docs/diff-model.md](docs/diff-model.md): the design of the layered
+  model, with the measurements behind it.
+- [CONTRIBUTING.md](CONTRIBUTING.md): building, testing, and the house
+  style. [AGENTS.md](AGENTS.md) has the full conventions.
+
+Tools built on this library — filtering build and lint diagnostics to
+the lines a pull request changes — live in
 [swift-steward](https://github.com/marosoaie/swift-steward).
 
 ## License
