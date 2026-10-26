@@ -9,11 +9,12 @@ struct EventRecorder: DiffEventConsumer, Sendable {
         case beginFile(FileHeader, rawHeader: [UInt8])
         case beginHunk(HunkHeader, heading: [UInt8])
         case line(LineInfo, content: [UInt8])
-        case noNewlineAtEndOfFile
+        case noNewlineAtEndOfFile(endsWithCarriageReturn: Bool)
         case binaryPatchLine([UInt8], endsWithCarriageReturn: Bool)
         case endFile
         case unrecognizedLine([UInt8], endsWithCarriageReturn: Bool)
         case damage(DamageReport)
+        case noNewlineAtEndOfInput
 
         var description: String {
             let text = { (bytes: [UInt8]) in String(decoding: bytes, as: UTF8.self).debugDescription }
@@ -27,8 +28,8 @@ struct EventRecorder: DiffEventConsumer, Sendable {
             case let .line(info, content):
                 let numbers = [info.oldNumber, info.newNumber].map { $0.map(String.init) ?? "-" }
                 return "line(\(info.kind), \(numbers[0])/\(numbers[1]), \(text(content)))"
-            case .noNewlineAtEndOfFile:
-                return "noNewlineAtEndOfFile"
+            case let .noNewlineAtEndOfFile(cr):
+                return "noNewlineAtEndOfFile(cr: \(cr))"
             case let .binaryPatchLine(content, cr):
                 return "binaryPatchLine(\(text(content)), cr: \(cr))"
             case .endFile:
@@ -37,6 +38,8 @@ struct EventRecorder: DiffEventConsumer, Sendable {
                 return "unrecognizedLine(\(text(content)), cr: \(cr))"
             case let .damage(report):
                 return "damage(\(report.reason), line \(report.lineNumber), \(report.file?.newPath?.string ?? "nil"))"
+            case .noNewlineAtEndOfInput:
+                return "noNewlineAtEndOfInput"
             }
         }
     }
@@ -55,8 +58,8 @@ struct EventRecorder: DiffEventConsumer, Sendable {
         events.append(.line(line, content: [UInt8](copying: content)))
     }
 
-    mutating func noNewlineAtEndOfFile() {
-        events.append(.noNewlineAtEndOfFile)
+    mutating func noNewlineAtEndOfFile(endsWithCarriageReturn: Bool) {
+        events.append(.noNewlineAtEndOfFile(endsWithCarriageReturn: endsWithCarriageReturn))
     }
 
     mutating func binaryPatchLine(_ content: Span<UInt8>, endsWithCarriageReturn: Bool) {
@@ -73,6 +76,10 @@ struct EventRecorder: DiffEventConsumer, Sendable {
 
     mutating func damage(_ report: DamageReport) {
         events.append(.damage(report))
+    }
+
+    mutating func noNewlineAtEndOfInput() {
+        events.append(.noNewlineAtEndOfInput)
     }
 
     /// The events of `bytes`, fed to a parser in `chunkSize`-byte chunks.

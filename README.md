@@ -17,7 +17,8 @@ does a diff touch, and on which lines?
   broken file, and the parser picks up again at the next file header.
 - **Validated against git itself.** Per-file results are cross-checked
   against `git apply --numstat` on the Linux kernel, redis, and
-  swift-argument-parser diffs.
+  swift-argument-parser diffs, and the full model renders each of them
+  back to its input, byte for byte.
 - **Swift 6.2 strict concurrency**, `Sendable` model types, no
   dependencies.
 
@@ -75,6 +76,11 @@ for file in diff.files {
         }
     }
 }
+
+// And back to text: for git's output, the input byte for byte. Stream it
+// in chunks, or build it whole.
+try diff.render { chunk in try output.write(contentsOf: chunk) }
+let text = [UInt8](rendering: diff)
 ```
 
 Paths in both are `DiffPath`s, git's exact bytes; `string` decodes them

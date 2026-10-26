@@ -98,7 +98,7 @@ struct DamageReportTests {
         #expect(events.contains(.unrecognizedLine(Array("+doesn't fit".utf8), endsWithCarriageReturn: false)))
     }
 
-    @Test("a hunk line without a marker is context and reported; an empty line is context and not")
+    @Test("a hunk line without a marker is context and reported, an empty one context and not; both are flagged")
     func missingLineMarker() {
         let diff = """
             --- a/f.txt
@@ -114,9 +114,12 @@ struct DamageReportTests {
         #expect(report?.reason == .missingLineMarker)
         #expect(report?.severity == .info)
         #expect(report?.lineNumber == 4)
-        let unmarked = LineInfo(kind: .context, oldNumber: 1, newNumber: 1)
+        let unmarked = LineInfo(kind: .context, oldNumber: 1, newNumber: 1, hasNoMarker: true)
         #expect(events.contains(.line(unmarked, content: Array("unmarked".utf8))))
-        #expect(events.contains(.line(LineInfo(kind: .context, oldNumber: 2, newNumber: 2), content: [])))
+        let empty = LineInfo(kind: .context, oldNumber: 2, newNumber: 2, hasNoMarker: true)
+        #expect(events.contains(.line(empty, content: [])))
+        let marked = LineInfo(kind: .context, oldNumber: 3, newNumber: 3)
+        #expect(events.contains(.line(marked, content: Array("three".utf8))))
     }
 
     @Test("a no-newline marker that follows no hunk line is reported and dropped")
@@ -134,7 +137,7 @@ struct DamageReportTests {
         let report = Self.onlyReport(in: events)
         #expect(report?.reason == .misplacedNoNewlineMarker)
         #expect(report?.lineNumber == 4)
-        #expect(!events.contains(.noNewlineAtEndOfFile))
+        #expect(!events.contains(.noNewlineAtEndOfFile(endsWithCarriageReturn: false)))
         #expect(events.filter { if case .line = $0 { true } else { false } }.count == 2)
     }
 
@@ -172,7 +175,7 @@ struct DamageReportTests {
         #expect(report?.reason == .misplacedNoNewlineMarker)
         #expect(report?.lineNumber == lineNumber)
         #expect(report?.file?.newPath?.string == "f.txt")
-        #expect(events.filter { $0 == .noNewlineAtEndOfFile }.count == markers)
+        #expect(events.filter { $0 == .noNewlineAtEndOfFile(endsWithCarriageReturn: false) }.count == markers)
         #expect(!events.contains { if case .unrecognizedLine = $0 { true } else { false } })
         #expect(Self.endsWithNextFile(events))
     }

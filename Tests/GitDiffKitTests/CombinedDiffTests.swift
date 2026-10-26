@@ -96,7 +96,7 @@ struct CombinedDiffTests {
     private static func leaks(_ event: Event) -> Bool {
         switch event {
         case .beginHunk, .line, .noNewlineAtEndOfFile, .binaryPatchLine, .damage: true
-        case .beginFile, .endFile, .unrecognizedLine: false
+        case .beginFile, .endFile, .unrecognizedLine, .noNewlineAtEndOfInput: false
         }
     }
 

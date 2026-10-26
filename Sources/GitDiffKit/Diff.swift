@@ -15,6 +15,9 @@
 /// it). For huge diffs, prefer a `DiffSummary`, a `ChangedLines`, or a
 /// `DiffEventConsumer` of your own, whose memory doesn't grow with content.
 ///
+/// `render(_:)` writes it back as text: for git's output, the input byte
+/// for byte.
+///
 /// Its entry points — `Diff(diff:)` and `DiffEventParser<Diff.Collector>()`
 /// — raise the parser's line cap to 64 MiB (`ParsingOptions.fullModel`),
 /// so content is kept whole up to that length. A file abandoned as damaged
@@ -30,12 +33,20 @@ public struct Diff: Sendable, Equatable {
     public var files: [DiffFile]
     /// Every damage report the parser made, in input order.
     public var damage: [DamageReport]
+    /// Whether the diff's last line has no `\n`: the input ended mid-line.
+    public var hasNoNewlineAtEnd: Bool
 
     /// Creates a diff from its parts.
-    public init(preamble: DiffFile.TextLines = [], files: [DiffFile] = [], damage: [DamageReport] = []) {
+    public init(
+        preamble: DiffFile.TextLines = [],
+        files: [DiffFile] = [],
+        damage: [DamageReport] = [],
+        hasNoNewlineAtEnd: Bool = false
+    ) {
         self.preamble = preamble
         self.files = files
         self.damage = damage
+        self.hasNoNewlineAtEnd = hasNoNewlineAtEnd
     }
 
     /// Parses a complete diff held in memory into the full model, with the

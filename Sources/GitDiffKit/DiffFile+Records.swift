@@ -21,6 +21,7 @@ extension DiffFile {
             if info.newNumber != nil { flags.insert(.hasNewNumber) }
             if info.endsWithCarriageReturn { flags.insert(.endsWithCarriageReturn) }
             if info.isTruncated { flags.insert(.isTruncated) }
+            if info.hasNoMarker { flags.insert(.hasNoMarker) }
             self.flags = flags
         }
 
@@ -37,7 +38,8 @@ extension DiffFile {
                 oldNumber: flags.contains(.hasOldNumber) ? oldNumber : nil,
                 newNumber: flags.contains(.hasNewNumber) ? newNumber : nil,
                 endsWithCarriageReturn: flags.contains(.endsWithCarriageReturn),
-                isTruncated: flags.contains(.isTruncated)
+                isTruncated: flags.contains(.isTruncated),
+                hasNoMarker: flags.contains(.hasNoMarker)
             )
         }
     }
@@ -56,9 +58,10 @@ extension DiffFile {
         var endsWithCarriageReturn: Bool
     }
 
-    /// A `LineRecord`'s kind and flags in one byte.
+    /// A `LineRecord`'s kind and flags; two bytes fit in the record's
+    /// padding, so it stays 32 bytes.
     struct LineFlags: OptionSet, Sendable {
-        let rawValue: UInt8
+        let rawValue: UInt16
         /// Neither this nor `.deletion` means context.
         static let addition = LineFlags(rawValue: 1 << 0)
         static let deletion = LineFlags(rawValue: 1 << 1)
@@ -67,5 +70,7 @@ extension DiffFile {
         static let endsWithCarriageReturn = LineFlags(rawValue: 1 << 4)
         static let isTruncated = LineFlags(rawValue: 1 << 5)
         static let hasNoNewlineAtEnd = LineFlags(rawValue: 1 << 6)
+        static let noNewlineMarkerEndsWithCarriageReturn = LineFlags(rawValue: 1 << 7)
+        static let hasNoMarker = LineFlags(rawValue: 1 << 8)
     }
 }

@@ -23,6 +23,11 @@ public struct LineInfo: Sendable, Equatable {
     /// and was cut to that many bytes; the cap counts the marker column, so
     /// the content keeps one byte less.
     public var isTruncated: Bool
+    /// Whether the line had no marker column, so its content is the whole
+    /// line: a context line written without its space, as `git diff` writes
+    /// an empty one with `diff.suppressBlankEmpty` and as trailing-whitespace
+    /// stripping leaves it. Always `.context`.
+    public var hasNoMarker: Bool
 
     /// Creates line information from its parts.
     public init(
@@ -30,12 +35,14 @@ public struct LineInfo: Sendable, Equatable {
         oldNumber: Int?,
         newNumber: Int?,
         endsWithCarriageReturn: Bool = false,
-        isTruncated: Bool = false
+        isTruncated: Bool = false,
+        hasNoMarker: Bool = false
     ) {
         self.kind = kind
         self.oldNumber = oldNumber
         self.newNumber = newNumber
         self.endsWithCarriageReturn = endsWithCarriageReturn
         self.isTruncated = isTruncated
+        self.hasNoMarker = hasNoMarker
     }
 }

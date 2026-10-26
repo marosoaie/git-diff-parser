@@ -44,9 +44,12 @@ extension DiffFile {
         }
 
         /// Flags the last line, if any.
-        mutating func markNoNewlineAtEnd() {
+        mutating func markNoNewlineAtEnd(markerEndsWithCarriageReturn: Bool) {
             guard !lines.isEmpty else { return }
             lines[lines.count - 1].flags.insert(.hasNoNewlineAtEnd)
+            if markerEndsWithCarriageReturn {
+                lines[lines.count - 1].flags.insert(.noNewlineMarkerEndsWithCarriageReturn)
+            }
         }
 
         mutating func appendBinaryPatchLine(_ content: Span<UInt8>, endsWithCarriageReturn: Bool) {
@@ -74,8 +77,13 @@ extension DiffFile {
         mutating func append(_ line: DiffLine) {
             let content = line.content
             appendLine(line.info, content: content.span)
+            // Each flag on its own, so even a marker flag without its
+            // marker packs and reads back unchanged.
             if line.hasNoNewlineAtEnd {
-                markNoNewlineAtEnd()
+                lines[lines.count - 1].flags.insert(.hasNoNewlineAtEnd)
+            }
+            if line.noNewlineMarkerEndsWithCarriageReturn {
+                lines[lines.count - 1].flags.insert(.noNewlineMarkerEndsWithCarriageReturn)
             }
         }
 
