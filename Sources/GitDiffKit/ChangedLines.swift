@@ -5,14 +5,20 @@
 /// memory bounded by the number of *edits* rather than the number of *lines*:
 /// a wholesale 100k-line file rewrite is a single range.
 public struct LineRangeSet: Sendable, Equatable {
+    /// The covered lines as closed ranges, ascending, with a gap of at
+    /// least one line between neighbors.
     public private(set) var ranges: [ClosedRange<Int>] = []
 
+    /// Creates an empty set.
     public init() {}
 
+    /// Creates a set of the lines `unsorted` covers, in any order and
+    /// overlapping or not.
     public init(_ unsorted: some Sequence<ClosedRange<Int>>) {
         for range in unsorted { insert(range) }
     }
 
+    /// Whether the set covers no lines.
     public var isEmpty: Bool { ranges.isEmpty }
 
     /// Total number of lines covered, saturating at `Int.max` for ranges too
@@ -32,10 +38,13 @@ public struct LineRangeSet: Sendable, Equatable {
         ranges.flatMap { Array($0) }
     }
 
+    /// Adds `line`, merging it with the ranges it touches.
     public mutating func insert(_ line: Int) {
         insert(line...line)
     }
 
+    /// Adds the lines of `range`, merging it with the ranges it overlaps
+    /// or touches.
     public mutating func insert(_ range: ClosedRange<Int>) {
         guard let last = ranges.last else {
             ranges.append(range)
@@ -132,8 +141,11 @@ public struct LineRangeSet: Sendable, Equatable {
 /// lines; for the lines a merge changed, diff it against its first parent
 /// (`--diff-merges=first-parent`) or use a three-dot diff.
 public struct ChangedLines: Sendable, Equatable {
+    /// Each file's added lines, keyed by its new path; a file with no
+    /// added lines has no entry.
     public private(set) var files: [String: LineRangeSet] = [:]
 
+    /// Creates a value with no files.
     public init() {}
 
     /// Creates a value from per-file range sets. Entries whose range set is
@@ -152,11 +164,14 @@ public struct ChangedLines: Sendable, Equatable {
             .mapValues { lines in LineRangeSet(lines.sorted().map { $0...$0 }) }
     }
 
+    /// Whether no file has added lines.
     public var isEmpty: Bool { files.isEmpty }
 
     /// File paths in a stable, sorted order.
     public var sortedPaths: [String] { files.keys.sorted() }
 
+    /// The added lines of the file at `path`, as ascending ranges; empty
+    /// for a file the diff adds no lines to.
     public func ranges(in path: String) -> [ClosedRange<Int>] {
         files[path]?.ranges ?? []
     }
@@ -167,6 +182,8 @@ public struct ChangedLines: Sendable, Equatable {
         files[path]?.allLines ?? []
     }
 
+    /// Whether the diff adds `line` to the file at `path`, or with a
+    /// tolerance, any line within `tolerance` lines of it; a binary search.
     public func contains(line: Int, in path: String, tolerance: Int = 0) -> Bool {
         files[path]?.contains(line, tolerance: tolerance) ?? false
     }

@@ -1,10 +1,12 @@
 extension ChangedLines {
     /// Collects the lines a diff adds, per file, from parser events: the
-    /// consumer behind `DiffParser` and `ChangedLines(diff:)`.
+    /// consumer behind ``DiffParser`` and ``ChangedLines/init(diff:)``.
     ///
-    ///     var parser = DiffEventParser(consumer: ChangedLines.Collector())
-    ///     parser.consume(diffBytes)
-    ///     let changes = parser.finalize().changedLines
+    /// ```swift
+    /// var parser = DiffEventParser(consumer: ChangedLines.Collector())
+    /// parser.consume(diffBytes)
+    /// let changes = parser.finalize().changedLines
+    /// ```
     ///
     /// A file's lines are recorded under its new path; deleted files have
     /// none, and combined diffs send no line events, so they add nothing.

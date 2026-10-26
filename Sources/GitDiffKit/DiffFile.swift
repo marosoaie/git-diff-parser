@@ -2,10 +2,9 @@
 /// bytes, and its hunks with every line's content.
 ///
 /// The file's bytes are packed into per-file arenas, with lines stored as
-/// offsets (see docs/diff-model.md, D8), so its collections — `hunks`,
-/// `lines`, `binaryPatchLines`, `leadingLines` — build their elements on
-/// access, as slices of that storage. Holding any element keeps the whole
-/// file's storage alive.
+/// offsets, so its collections — `hunks`, `lines`, `binaryPatchLines`,
+/// `leadingLines` — build their elements on access, as slices of that
+/// storage. Holding any element keeps the whole file's storage alive.
 ///
 /// In input order, a file is its raw header, then its binary patch lines,
 /// its leading lines, and its hunks, each followed by its trailing lines.

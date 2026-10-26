@@ -1,15 +1,17 @@
 extension Diff {
-    /// Collects the full model, `Diff`, from parser events.
+    /// Collects the full model, ``Diff``, from parser events.
     ///
-    ///     var parser = DiffEventParser<Diff.Collector>()
-    ///     while let chunk = readSomeBytes() { parser.consume(chunk) }
-    ///     let diff = parser.finalize().diff
+    /// ```swift
+    /// var parser = DiffEventParser<Diff.Collector>()
+    /// while let chunk = readSomeBytes() { parser.consume(chunk) }
+    /// let diff = parser.finalize().diff
+    /// ```
     ///
     /// That initializer raises the line cap to 64 MiB. Created with
-    /// `DiffEventParser(consumer:options:)` instead, pass
+    /// ``DiffEventParser/init(consumer:options:)`` instead, pass
     /// `options: .fullModel`, or lines over the default 1 MiB are cut.
     ///
-    /// Memory grows with the diff's content; see `Diff`.
+    /// Memory grows with the diff's content; see ``Diff``.
     public struct Collector: DiffEventConsumer, Sendable {
         /// The model collected so far; complete once the parser is
         /// finalized.

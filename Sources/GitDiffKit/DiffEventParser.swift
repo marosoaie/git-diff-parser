@@ -1,14 +1,16 @@
-/// Streaming parser that turns a diff into `DiffEventConsumer` events.
+/// Streaming parser that turns a diff into ``DiffEventConsumer`` events.
 ///
 /// Feed it the diff in byte chunks of any size, split anywhere — even
 /// inside a line or a UTF-8 character — and call `finalize()` once at the
 /// end. The events are the same for any chunking. Working memory is
-/// bounded by the line cap (`ParsingOptions.maximumLineLength`) and the
+/// bounded by the line cap (``ParsingOptions/maximumLineLength``) and the
 /// header bound (64 lines, 1 MiB), not by the size of the input.
 ///
-///     var parser = DiffEventParser(consumer: MyCollector())
-///     while let chunk = readSomeBytes() { parser.consume(chunk) }
-///     let collector = parser.finalize()
+/// ```swift
+/// var parser = DiffEventParser(consumer: MyCollector())
+/// while let chunk = readSomeBytes() { parser.consume(chunk) }
+/// let collector = parser.finalize()
+/// ```
 ///
 /// It reads `git diff`/`git show` output with git's extended headers,
 /// plain `diff -u`/`diff -ruN` output, and streams such as `git log -p` or

@@ -6,14 +6,16 @@
 /// of the input, so multi-hundred-megabyte diffs parse in constant working
 /// memory.
 ///
-///     var parser = DiffParser()
-///     while let chunk = readSomeBytes() { parser.consume(chunk) }
-///     let changes = parser.finalize()
+/// ```swift
+/// var parser = DiffParser()
+/// while let chunk = readSomeBytes() { parser.consume(chunk) }
+/// let changes = parser.finalize()
+/// ```
 ///
 /// The library doesn't depend on Foundation; feed `Data` read from a
 /// `FileHandle` as `[UInt8](data)`.
 ///
-/// A facade over `DiffEventParser` with a `ChangedLines.Collector`; use
+/// A facade over ``DiffEventParser`` with a ``ChangedLines/Collector``; use
 /// those directly to see more of the diff than its added lines.
 public struct DiffParser: Sendable {
     private var parser = DiffEventParser(consumer: ChangedLines.Collector())
@@ -44,7 +46,7 @@ public struct DiffParser: Sendable {
 
 extension ChangedLines {
     /// Parses a complete unified diff held in memory. For large inputs,
-    /// prefer feeding chunks to a `DiffParser` instead.
+    /// prefer feeding chunks to a ``DiffParser`` instead.
     public init(diff: String) {
         var parser = DiffParser()
         parser.consume(diff)

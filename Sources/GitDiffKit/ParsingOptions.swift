@@ -1,4 +1,4 @@
-/// Settings for a `DiffEventParser`.
+/// Settings for a ``DiffEventParser``.
 public struct ParsingOptions: Sendable, Equatable {
     /// The longest line the parser hands on, in bytes, not counting its
     /// terminator or a trailing `\r`; longer lines are cut to it and flagged
