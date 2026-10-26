@@ -70,6 +70,31 @@ struct RealWorldDiffTests {
         Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: diffURL))
     }
 
+    @Test("the full model renders each diff back to its input, byte for byte", arguments: RealWorldFixture.allCases)
+    func roundTrip(fixture: RealWorldFixture) async throws {
+        let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
+        var parser = DiffEventParser<Diff.Collector>()
+        try Self.forEachChunk(of: diffURL) { parser.consume($0) }
+        let diff = parser.finalize().diff
+        #expect(diff.damage.isEmpty)
+
+        // Chunk by chunk against the input, so a failure names the first
+        // byte that differs instead of printing two 70 MB arrays.
+        let input = try Array(Data(contentsOf: diffURL))
+        var offset = 0
+        var firstDifference: Int?
+        diff.render { chunk in
+            guard firstDifference == nil else { return }
+            let expected = input[min(offset, input.count)..<min(offset + chunk.count, input.count)]
+            if chunk != expected {
+                firstDifference = offset + zip(chunk, expected).prefix { $0 == $1 }.count
+            }
+            offset += chunk.count
+        }
+        #expect(firstDifference == nil, "the rendering differs from the input at byte \(firstDifference ?? 0)")
+        #expect(offset == input.count)
+    }
+
     @Test(
         "the full model holds every event of a real diff, in order",
         arguments: [RealWorldFixture.redis, .swiftArgumentParser]

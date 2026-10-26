@@ -13,11 +13,12 @@ enum FastImport {
     }
 
     /// Git with the user's and the system's configuration shut out, so
-    /// settings like `diff.noprefix` or `color.diff` can't change output.
-    static func git(_ arguments: [String], in repository: URL) throws -> Data {
+    /// settings like `diff.noprefix` or `color.diff` can't change output;
+    /// `environment` adds to it.
+    static func git(_ arguments: [String], in repository: URL, environment: [String: String] = [:]) throws -> Data {
         try Subprocess.output(
             of: ["git", "-C", repository.path] + arguments,
-            environment: isolatedEnvironment
+            environment: isolatedEnvironment.merging(environment) { $1 }
         )
     }
 
