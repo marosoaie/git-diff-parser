@@ -50,6 +50,16 @@ struct LineRangeSetTests {
         #expect(!negatives.contains(0, tolerance: Int.max))
     }
 
+    @Test("creating a set from ranges in any order normalizes them as inserting them does")
+    func initNormalizes() {
+        let ranges = [Int.max...Int.max, 8...9, 5...6, (Int.max - 1)...Int.max, 7...7, 20...30, 25...26, 1...1]
+        var inserted = LineRangeSet()
+        ranges.forEach { inserted.insert($0) }
+        #expect(LineRangeSet(ranges) == inserted)
+        #expect(LineRangeSet(ranges).ranges == [1...1, 5...9, 20...30, (Int.max - 1)...Int.max])
+        #expect(LineRangeSet([Int.min...0, Int.min...Int.min, 1...1]).ranges == [Int.min...1])
+    }
+
     @Test("lineCount saturates instead of trapping on uncountable ranges")
     func lineCountSaturation() {
         #expect(LineRangeSet([Int.min...Int.max]).lineCount == Int.max)
