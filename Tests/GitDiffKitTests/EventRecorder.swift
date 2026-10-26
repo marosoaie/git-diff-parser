@@ -79,11 +79,7 @@ struct EventRecorder: DiffEventConsumer, Sendable {
     static func events(
         in bytes: [UInt8], chunkSize: Int = .max, options: ParsingOptions = .init()
     ) -> [Event] {
-        var parser = DiffEventParser(consumer: EventRecorder(), options: options)
-        stride(from: 0, to: bytes.count, by: chunkSize).forEach { start in
-            parser.consume(bytes[start..<(start + min(chunkSize, bytes.count - start))])
-        }
-        return parser.finalize().events
+        DiffEventParser.collect(EventRecorder(), from: bytes, chunkSize: chunkSize, options: options).events
     }
 
     /// The events of `diff`, fed whole.

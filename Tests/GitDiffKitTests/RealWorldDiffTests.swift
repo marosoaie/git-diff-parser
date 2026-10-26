@@ -43,9 +43,9 @@ struct RealWorldDiffTests {
     )
     func matchesGitApply(fixture: RealWorldFixture) async throws {
         let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
-        var parser = DiffEventParser(consumer: FileTally())
+        var parser = DiffEventParser(consumer: DiffSummary.Collector())
         try Self.forEachChunk(of: diffURL) { parser.consume($0) }
-        let files = parser.finalize().files
+        let files = parser.finalize().summary.files
 
         let summary = try GitApply.summary(forDiffAt: diffURL)
         #expect(!summary.isEmpty)
@@ -60,11 +60,11 @@ struct RealWorldDiffTests {
     func chunkInvariance(fixture: RealWorldFixture) async throws {
         let diffURL = try await RealWorldFixtureStore.localDiffURL(for: fixture)
         let bytes = try Array(Data(contentsOf: diffURL))
-        let whole = FileTally.files(in: bytes)
+        let whole = DiffSummary.files(in: bytes)
         // One-byte chunks take seconds per megabyte in debug builds.
         let chunkSizes = [4093, (1 << 20) + 7] + (bytes.count < 1 << 20 ? [1] : [])
         chunkSizes.forEach { chunkSize in
-            #expect(FileTally.files(in: bytes, chunkSize: chunkSize) == whole, "chunk size \(chunkSize)")
+            #expect(DiffSummary.files(in: bytes, chunkSize: chunkSize) == whole, "chunk size \(chunkSize)")
         }
     }
 
