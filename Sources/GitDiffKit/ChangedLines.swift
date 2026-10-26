@@ -13,9 +13,21 @@ public struct LineRangeSet: Sendable, Equatable {
     public init() {}
 
     /// Creates a set of the lines `unsorted` covers, in any order and
-    /// overlapping or not.
+    /// overlapping or not. It sorts them once and merges in one pass, so
+    /// ranges in any order cost O(n log n); inserting them one by one
+    /// costs O(n²) when they come in descending order.
     public init(_ unsorted: some Sequence<ClosedRange<Int>>) {
-        for range in unsorted { insert(range) }
+        ranges = unsorted.sorted { $0.lowerBound < $1.lowerBound }.reduce(into: []) { merged, range in
+            guard let last = merged.last, !Self.gapFollows(last.upperBound, before: range.lowerBound) else {
+                return merged.append(range)
+            }
+            merged[merged.count - 1] = last.lowerBound...max(last.upperBound, range.upperBound)
+        }
+    }
+
+    /// Wraps ranges that are already sorted, disjoint, and non-adjacent.
+    init(normalized ranges: [ClosedRange<Int>]) {
+        self.ranges = ranges
     }
 
     /// Whether the set covers no lines.
@@ -44,7 +56,9 @@ public struct LineRangeSet: Sendable, Equatable {
     }
 
     /// Adds the lines of `range`, merging it with the ranges it overlaps
-    /// or touches.
+    /// or touches. A range starting at or past the last range's start
+    /// inserts in O(1); one starting lower shifts the ranges after it, so
+    /// for many ranges in any order, prefer ``init(_:)``.
     public mutating func insert(_ range: ClosedRange<Int>) {
         guard let last = ranges.last else {
             ranges.append(range)
@@ -86,13 +100,26 @@ public struct LineRangeSet: Sendable, Equatable {
         ranges.replaceSubrange(lo..<end, with: [newLower...newUpper])
     }
 
-    /// Adds every line of `other`.
+    /// Adds every line of `other`: in O(m) when it starts at or past the
+    /// last range, as a file seen again further down a log usually does,
+    /// else by sorting both together.
     mutating func formUnion(_ other: LineRangeSet) {
         guard !isEmpty else {
             self = other
             return
         }
-        other.ranges.forEach { insert($0) }
+        if extendsCheaply(with: other) {
+            other.ranges.forEach { insert($0) }
+        } else {
+            self = LineRangeSet(ranges + other.ranges)
+        }
+    }
+
+    /// Whether `other` starts at or past the last range, so each of its
+    /// ranges inserts in O(1).
+    func extendsCheaply(with other: LineRangeSet) -> Bool {
+        guard let last = ranges.last, let first = other.ranges.first else { return true }
+        return first.lowerBound >= last.lowerBound
     }
 
     /// Whether `next` starts strictly beyond `upperBound + 1`, without

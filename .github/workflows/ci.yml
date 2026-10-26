@@ -84,3 +84,28 @@ jobs:
 
       - name: Run tests
         run: swift test --skip-build
+
+      # A minute of coverage-guided fuzzing on top of the seeded mutation
+      # tests. libFuzzer ships with Linux toolchains only, and SwiftPM can't
+      # link a libFuzzer executable, so it builds the library instrumented
+      # and links Fuzz/FuzzTarget.swift with swiftc. A finding fails the
+      # step and its input is uploaded.
+      - name: Fuzz
+        run: |
+          swift build -c release --target GitDiffKit --scratch-path .build/fuzz -Xswiftc -sanitize=fuzzer,address
+          swiftc -O -sanitize=fuzzer,address -parse-as-library -strict-memory-safety -warnings-as-errors \
+            -I .build/fuzz/release/Modules Fuzz/FuzzTarget.swift .build/fuzz/release/GitDiffKit.build/*.o \
+            -o .build/fuzz/GitDiffKitFuzz
+          mkdir -p .build/fuzz/corpus
+          .build/fuzz/GitDiffKitFuzz -max_total_time=60 -max_len=16384 -artifact_prefix=.build/fuzz/ \
+            .build/fuzz/corpus Fuzz/Corpus
+
+      - name: Upload fuzz findings
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-findings
+          path: .build/fuzz/crash-*
+          # The findings are under .build, which counts as hidden.
+          include-hidden-files: true
+          if-no-files-found: ignore
