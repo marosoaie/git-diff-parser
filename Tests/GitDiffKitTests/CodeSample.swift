@@ -57,7 +57,7 @@ extension CodeSample {
 
     /// Markdown files whose Swift samples must compile, relative to the
     /// repository root; the design docs' API sketches are left out.
-    static let markdownFiles = ["README.md"]
+    static let markdownFiles = ["README.md", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md"]
     static let catalog = "Sources/GitDiffKit/GitDiffKit.docc"
     static let sources = "Sources/GitDiffKit"
 
