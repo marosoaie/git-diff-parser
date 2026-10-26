@@ -1,0 +1,7 @@
+diff -u old/f.txt new/f.txt
+--- old/f.txt	2026-10-26 01:00:00.000000000 +0100
++++ new/f.txt	2026-10-26 01:00:01.000000000 +0100
+@@ -1 +1 @@
+-x
++y
+Only in new: extra.txt

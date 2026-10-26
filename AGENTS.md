@@ -117,6 +117,14 @@ iteration), never narration of the next line.
   `git apply --numstat` on real diffs (Linux kernel, redis,
   swift-argument-parser).
 - Every bug fix lands with a regression test (see `MalformedInputTests`).
+- Hostile input is tested by seeded mutations of the real fixtures and a
+  corpus (`MutationTests`): byte noise and structural edits must never
+  trap, must not change results across chunkings, and must leave the
+  files they didn't touch exactly as parsed clean. CI runs a few hundred
+  seeds; a failure names its seed, and `GIT_DIFF_PARSER_MUTATION_SEEDS`
+  (one seed, or a quoted range such as `'0..<100000'`) reruns it.
+  Linux CI also fuzzes for a minute with libFuzzer
+  (`Fuzz/FuzzTarget.swift` says how to run it).
 - Performance-relevant changes are benchmarked on the kernel-diff fixtures
   in release mode before merging; parsing throughput (~0.2 s / 70 MB) and
   flat peak memory are the budget.

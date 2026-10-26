@@ -1,0 +1,7 @@
+diff --git a/w.txt b/w.txt
+--- a/w.txt
++++ b/w.txt
+@@ -1,2 +1,2 @@ section
+ one
+-two
++TWO
