@@ -91,9 +91,6 @@ report stays private between you and the maintainer until a fix is
 published. Include the input that triggers the problem, or a way to
 generate it, and the GitDiffKit version or commit.
 
-If the button isn't there, open an issue that asks for a private way to
-send a report, without the details.
-
 ## Supported versions
 
 GitDiffKit is pre-1.0. Fixes land on `main` and ship in the next

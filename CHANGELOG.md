@@ -7,6 +7,8 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 
 ## Unreleased
 
+## 0.2.0 — 2026-10-26
+
 GitDiffKit grows from changed-line ranges into a layered diff model: a
 streaming event parser at the bottom, with three collectors on top —
 `ChangedLines`, a per-file `DiffSummary`, and the full `Diff`, which
