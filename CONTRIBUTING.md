@@ -117,6 +117,9 @@ short:
 - Never commit large binaries, and don't use Git LFS: SwiftPM clones
   this repository, and LFS breaks clones on machines without it. Large
   test fixtures are downloaded and cached at test time instead.
+- Commit material from another project (a fixture, say) with its
+  licence next to it and an entry in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - The maintainer picks version numbers and tags releases.
 
 By contributing, you agree that your contributions are licensed under

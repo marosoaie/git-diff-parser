@@ -141,6 +141,9 @@ iteration), never narration of the next line.
   repo, and LFS breaks checkouts on machines with missing or misconfigured
   `git-lfs`. Big test fixtures are downloaded and cached at test time
   instead.
+- Material from another project (a fixture, say) is committed with its
+  licence next to it and an entry in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Releases are semver git tags — no binaries. The maintainer drives version
   numbers and tags releases; never tag unprompted. 0.x releases may break
   API; from 1.0 on, semver applies strictly.
