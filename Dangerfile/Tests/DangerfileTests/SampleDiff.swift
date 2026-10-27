@@ -75,6 +75,21 @@ enum SampleDiff {
 
         """
 
+    /// A dependency removed from the library's manifest, beside one that
+    /// stays as context.
+    static let dependencyRemoved = """
+        diff --git a/Package.swift b/Package.swift
+        index 8888888..9999999 100644
+        --- a/Package.swift
+        +++ b/Package.swift
+        @@ -2,4 +2,3 @@
+             dependencies: [
+                 .package(url: "https://github.com/apple/swift-collections", from: "1.0.0"),
+        -        .package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0"),
+             ],
+
+        """
+
     /// Another edit to the library's manifest, and a dependency added to
     /// the Dangerfile's.
     static let otherManifestEdits = """

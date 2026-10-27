@@ -18,6 +18,12 @@ struct NoDependenciesTests {
         #expect(try await Checks.noDependencies.evaluate(context).isEmpty)
     }
 
+    @Test("removing a dependency passes, and so does one that stays as context")
+    func removal() async throws {
+        let context = try Context.fixture(diff: SampleDiff.dependencyRemoved)
+        #expect(try await Checks.noDependencies.evaluate(context).isEmpty)
+    }
+
     @Test("a pull request that leaves the manifest alone passes")
     func noManifest() async throws {
         let context = try Context.fixture(diff: SampleDiff.source)
