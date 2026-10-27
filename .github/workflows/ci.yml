@@ -18,7 +18,7 @@ jobs:
     # pushes to main get this too, and use it for nothing.
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
 
