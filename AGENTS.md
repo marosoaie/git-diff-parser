@@ -18,6 +18,16 @@ on Linux; only the tests may use it, guarding Darwin-only APIs with
 `#if canImport(Darwin)`. `ByteLineConsumer`
 (chunk-to-line splitting) is internal.
 
+The one exception to both rules, agreed by the maintainer on 2026-10-27, is
+`Dangerfile/`: this repository's own pull request checks, a separate
+package that depends on swift-steward and runs in CI through
+[steward-action](https://github.com/marosoaie/steward-action). It never
+reaches the library's users: GitDiffKit's `Package.swift` doesn't name it,
+and SwiftPM reads only the manifests of the packages a graph declares, so
+a nested package's dependencies are never resolved, fetched, or built for
+anyone who depends on GitDiffKit. Keep it that way: nothing in the root
+manifest refers to `Dangerfile/`.
+
 ## Commands
 
 ```sh
@@ -27,12 +37,14 @@ GIT_DIFF_PARSER_SKIP_NETWORK_TESTS=1 swift test   # offline subset
 xcodebuild test -scheme git-diff-parser -destination platform=macOS
 swift build -c release            # for benchmarks — never benchmark debug builds
 swiftlint lint --quiet            # must print nothing
+swift test --package-path Dangerfile   # the PR checks' rules
 ```
 
 SwiftLint's configuration (`.swiftlint.yml`, with a `Tests/.swiftlint.yml`
 override) encodes the mechanically checkable parts of the style below —
 functional-preference rules are opted in, force unwraps are allowed in tests
-only. Keep the whole tree violation-free; PR CI annotates violations. When a
+only. Keep the whole tree violation-free; PR CI annotates violations, and
+Steward's comment fails the job on any on the lines a PR changes. When a
 rule fights a deliberate design decision, disable it in config or inline —
 always with a comment saying why.
 

@@ -6,6 +6,9 @@ included:
   - Sources
   - Tests
   - Fuzz
+  # This repository's own pull request checks (ci.yml).
+  - Dangerfile/Sources
+  - Dangerfile/Tests
 
 opt_in_rules:
   # Functional style (AGENTS.md: combinators over loops).

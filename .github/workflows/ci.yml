@@ -13,6 +13,12 @@ jobs:
   tests-and-lint:
     runs-on: macos-26
     timeout-minutes: 30
+    # Steward, on pull requests only, creates, updates and deletes its
+    # summary comment. A job's permissions can't depend on the event, so
+    # pushes to main get this too, and use it for nothing.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
 
@@ -28,16 +34,23 @@ jobs:
             ~/Library/Caches/git-diff-parser-tests
           key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift') }}
 
+      # The log is what Steward's diagnostics rule reads (Dangerfile/).
       - name: Build
-        run: swift build --build-tests -Xswiftc -warnings-as-errors
+        run: |
+          set -o pipefail
+          swift build --build-tests -Xswiftc -warnings-as-errors 2>&1 | tee build.log
 
       - name: Run tests
         run: swift test --skip-build
 
+      # Annotates every violation, in or out of the pull request's changes.
+      # The log is the same violations in the format Steward reads, from
+      # SwiftLint's cache; the annotating run decides the step's outcome.
       - name: SwiftLint
         if: ${{ !cancelled() }}
         run: |
           which swiftlint || brew install swiftlint
+          swiftlint lint --quiet > swiftlint.log || true
           swiftlint lint --quiet --reporter github-actions-logging
 
       # Fails on any DocC warning, such as a broken symbol link. Derived
@@ -48,6 +61,17 @@ jobs:
           xcodebuild docbuild -scheme git-diff-parser -destination platform=macOS
           -derivedDataPath "$RUNNER_TEMP/docs" -quiet
           OTHER_DOCC_FLAGS=--warnings-as-errors
+
+      # This repository's Dangerfile/, on the two logs above: it fails on
+      # warnings on changed lines and posts one summary comment. Steward
+      # refuses push events. Pinned to a commit until steward-action tags v1.
+      - name: Steward
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        uses: marosoaie/steward-action@c606a4a637221b3d86c35e18c71aa4bbf6d9fecb
+
+      - name: Test the Dangerfile's rules
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: swift test --package-path Dangerfile
 
   linux-tests:
     runs-on: ubuntu-latest
