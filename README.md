@@ -163,4 +163,5 @@ the lines a pull request changes — live in
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). One test fixture comes from the Swift project and keeps
+its own licence: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
