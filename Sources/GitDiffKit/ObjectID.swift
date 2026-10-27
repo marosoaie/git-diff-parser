@@ -6,7 +6,6 @@
 public struct ObjectID: Sendable, Hashable, CustomStringConvertible {
     /// The most hex digits an ID can have: SHA-256's 64; SHA-1 IDs have 40.
     public static let maximumHexDigits = 64
-    // TODO: step 4.9's test commit, changed.
 
     // 64 nibbles in four words, most significant nibble first. Stored
     // properties rather than a tuple keep Hashable synthesized.
