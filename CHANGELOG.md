@@ -7,6 +7,8 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 
 ## Unreleased
 
+- Step 4.9's test entry, reverted before review.
+
 ## 0.2.0 — 2026-10-26
 
 GitDiffKit grows from changed-line ranges into a layered diff model: a
