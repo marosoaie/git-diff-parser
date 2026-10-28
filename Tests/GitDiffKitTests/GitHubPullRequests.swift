@@ -23,22 +23,35 @@ enum GitHubPullRequests {
     private static let token = ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
 
     /// The pull requests compared, as `owner/repository#number`: seven of
-    /// each repository merged in September 2026, and the largest found
-    /// that GitHub still serves (to 265 files, or 254,275 lines in 13).
+    /// each of the first repositories, merged in September 2026; the
+    /// largest found that GitHub still serves (to 265 files, or 254,275
+    /// lines in 13); and, as those have none, some with binary files, mode
+    /// changes, submodules, and symlinks.
     static let all = [
         ("swiftlang/swift", [92738, 92739, 92741, 92749, 92751, 92752, 92758]),
         ("apple/swift-nio", [3739, 3740, 3741, 3742, 3750, 3751, 3755]),
-        ("microsoft/vscode", [338984, 338988, 338993, 338995, 338996, 338998, 339009]),
+        ("microsoft/vscode", [335333, 338984, 338988, 338993, 338995, 338996, 338998, 339009]),
         ("vercel/next.js", [99476, 99477, 99478, 99479, 99480, 99481, 99482]),
         ("rust-lang/rust", [163472, 163498, 163500, 163502, 163505, 163507, 163522, 163526, 164216, 164928]),
         ("python/cpython", [158515, 158517, 158519, 158520, 158528, 158531, 158538]),
         ("nodejs/node", [66368, 66372, 66373, 66377, 66383, 66401, 66416]),
         ("dotnet/runtime", [134876, 134877, 134882, 134886, 134914, 134918, 134924, 135318]),
-        ("microsoft/PowerToys", [50885, 50889, 50891, 50893, 50917, 50921, 50923]),
+        ("microsoft/PowerToys", [50885, 50889, 50891, 50893, 50917, 50921, 50923, 51396]),
         ("Homebrew/homebrew-core", [314580, 314581, 314582, 314584, 314585, 314590, 314591]),
         ("flutter/flutter", [193572, 193577, 193578, 193581, 193582, 193584, 193594]),
         ("kubernetes/kubernetes", [142532, 142535, 142536, 142537, 142552, 142556, 142576, 142604, 142834]),
         ("microsoft/TypeScript", [64117, 64457, 64620]),
+        ("microsoft/fluentui-system-icons", [1257]),
+        ("microsoft/WSL", [41715]),
+        ("google/site-kit-wp", [13095]),
+        ("flutter/website", [13724]),
+        ("nlohmann/json_test_data", [7]),
+        ("locationtech/geotrellis", [3622]),
+        ("centreon/centreon-plugins", [6456]),
+        ("duckdb/duckdb-iceberg", [1426]),
+        ("commaai/openpilot", [38996]),
+        ("redhat-cop/gitops-catalog", [439]),
+        ("gemwalletcom/wallet", [1414]),
     ].flatMap { repository, numbers in numbers.map { "\(repository)#\($0)" } }
 
     /// One file of GitHub's list for a pull request.
