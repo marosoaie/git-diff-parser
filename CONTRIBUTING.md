@@ -14,7 +14,10 @@ pull request diagnostics, the `steward` CLI — live in
 Two constraints shape every change:
 
 - **No dependencies.** That's part of what the package offers; adding
-  one needs the maintainer's agreement first.
+  one needs the maintainer's agreement first. The one exception is
+  `Dangerfile/`, a separate package for this repository's own pull
+  request checks: GitDiffKit's `Package.swift` doesn't name it, so its
+  dependencies never reach the library's users.
 - **No Foundation in `Sources/`**, so the library builds on every Apple
   platform and on Linux. The tests may use Foundation, guarding
   Darwin-only APIs with `#if canImport(Darwin)`.
@@ -110,7 +113,11 @@ short:
 
 - `main` takes changes only through pull requests, which the maintainer
   reviews and merges. CI runs the suite on macOS and Ubuntu, SwiftLint,
-  a documentation build that fails on any warning, and the fuzzer.
+  a documentation build that fails on any warning, and the fuzzer. On a
+  pull request, [Steward](https://github.com/marosoaie/swift-steward)
+  then comments with the build and lint diagnostics on the lines it
+  changes, and fails on any warning there; its rules are in
+  [Dangerfile/](Dangerfile/README.md).
 - Write commit subjects in the imperative mood ("Parse rename headers"),
   with a body that explains why and what you checked.
 - Say in the pull request which tests you ran.

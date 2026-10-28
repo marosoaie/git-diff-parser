@@ -3,3 +3,6 @@
 *.xcodeproj
 DerivedData/
 .claude/settings.local.json
+# The logs ci.yml's Steward run reads (Dangerfile/), also written by a local dry run.
+/build.log
+/swiftlint.log
