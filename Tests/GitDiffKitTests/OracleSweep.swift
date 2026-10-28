@@ -61,24 +61,41 @@ enum OracleSweep {
         return entries
     }
 
-    /// `entries` from `git show --numstat`, with a binary file that is moved
-    /// or copied unchanged counted as text, where `files` is what the diff
-    /// says.
+    /// GitDiffKit's counts for `files`, and git's `oracle` for them, made
+    /// comparable where `git show --numstat` reads more than the text.
     ///
-    /// Such a file has no content in the diff, so the text can't say whether
-    /// it's binary: git reads the blob and prints `-`, where `git apply`,
-    /// which reads only the text, prints 0 like GitDiffKit.
-    static func entries(
-        _ entries: [GitApply.NumstatEntry], asTextReads files: [DiffSummary.File]
-    ) -> [GitApply.NumstatEntry] {
-        zip(entries, files).map { entry, file in
-            let unchanged: Bool = switch file.header.change {
-            case .renamed(similarity: 100), .copied(similarity: 100): true
-            default: false
+    /// Two differences are git's, not the text's, and `git apply --numstat`,
+    /// which reads only the text, agrees with GitDiffKit on both:
+    /// - A type change (a file replaced by a symlink, say) is two files in
+    ///   the diff, a deletion and a creation of one path, where git show
+    ///   prints one line for both. Ours are folded into one.
+    /// - A file whose content didn't change (a pure rename or copy, or a
+    ///   mode change) has no content in the diff, so the text can't say
+    ///   whether it's binary, where git reads the blob and prints `-` for a
+    ///   binary one. Git's are counted as text.
+    static func comparable(
+        _ files: [DiffSummary.File], _ oracle: [GitApply.NumstatEntry]
+    ) -> (ours: [GitApply.NumstatEntry], oracle: [GitApply.NumstatEntry]) {
+        let folded = zip(files.map(\.header), GitApply.numstat(of: files))
+            .reduce(into: [(header: FileHeader, entry: GitApply.NumstatEntry)]()) { folded, next in
+                guard let last = folded.last, case .deleted = last.header.change, case .added = next.0.change,
+                      last.entry.path == next.1.path
+                else {
+                    folded.append(next)
+                    return
+                }
+                let sum = { (one: Int?, other: Int?) in one.flatMap { one in other.map { one + $0 } } }
+                folded[folded.count - 1].entry = GitApply.NumstatEntry(
+                    added: sum(last.entry.added, next.1.added), deleted: sum(last.entry.deleted, next.1.deleted),
+                    path: last.entry.path
+                )
             }
-            guard unchanged, entry.added == nil, !file.header.isBinary else { return entry }
+        let oracle = zip(oracle, folded).map { entry, ours in
+            guard ours.header.oldObjectID == ours.header.newObjectID, entry.added == nil, ours.entry.added == 0
+            else { return entry }
             return GitApply.NumstatEntry(added: 0, deleted: 0, path: entry.path)
-        } + entries.dropFirst(files.count)
+        } + oracle.dropFirst(folded.count)
+        return (folded.map(\.entry), oracle)
     }
 
     /// Runs git in `clone` with no global or system configuration, so the
