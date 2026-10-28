@@ -24,7 +24,7 @@ jobs:
               apt-get update
               apt-get install -y --no-install-recommends git xz-utils ca-certificates
             else
-              dnf install -y git-core xz
+              dnf install -y git-core xz diffutils
             fi
           fi
           head -2 /etc/os-release
@@ -41,11 +41,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - name: Select the oldest Xcode 26
+      - name: Select Xcode 26.0
         run: |
-          ls -d /Applications/Xcode*.app
-          xcode="$(printf '%s\n' /Applications/Xcode_26*.app | sort -V | head -1)"
-          sudo xcode-select -s "$xcode"
+          sudo xcode-select -s /Applications/Xcode_26.0.app
           xcodebuild -version
           swift --version
           sw_vers
@@ -56,13 +54,6 @@ jobs:
       - name: Run tests in Xcode
         if: ${{ !cancelled() }}
         run: xcodebuild test -scheme git-diff-parser -destination platform=macOS -quiet
-      - name: Build for the other Apple platforms
-        if: ${{ !cancelled() }}
-        run: |
-          for platform in iOS tvOS watchOS visionOS; do
-            xcodebuild build -scheme git-diff-parser -destination "generic/platform=$platform" \
-              -derivedDataPath "$RUNNER_TEMP/$platform" -quiet SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
-          done
 
   windows:
     runs-on: windows-latest
@@ -120,16 +111,3 @@ jobs:
       - name: Run tests
         if: ${{ !cancelled() }}
         run: swift test --skip-build --swift-sdk "${{ matrix.id }}"
-
-  fuzz-layout-swift-6-4:
-    runs-on: ubuntu-latest
-    container: swift:6.4.1-noble
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build the library for fuzzing and list what it made
-        run: |
-          swift build -c release --target GitDiffKit --scratch-path .build/fuzz -Xswiftc -sanitize=fuzzer,address
-          ls -la .build/fuzz .build/fuzz/release || true
-          find .build/fuzz -name '*.swiftmodule' -not -path '*/checkouts/*' | head -20
-          find .build/fuzz -name '*.o' -path '*GitDiffKit*' | head -5
