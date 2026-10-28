@@ -177,17 +177,19 @@ INTERNALS.md; the behaviour is unchanged, and no test pins it.
 ## Platforms in CI
 
 These run on every pull request and every push to `main`
-([CI](../.github/workflows/ci.yml)). Run [40674641056](https://github.com/marosoaie/git-diff-parser/actions/runs/40674641056) is the first with all
-of them:
+([CI](../.github/workflows/ci.yml)). Run [40674974003], on the oracle
+tests' pull request, is the first with all of them and every test:
+
+[40674974003]: https://github.com/marosoaie/git-diff-parser/actions/runs/40674974003
 
 | Check | Runner | Toolchain | Result |
 |---|---|---|---|
-| `tests-and-lint` | macos-26 | Xcode 26.6 (Swift 6.3.3) | `swift test` (186 tests) and `xcodebuild test` pass |
+| `tests-and-lint` | macos-26 | Xcode 26.6 (Swift 6.3.3) | `swift test` (187 tests) and `xcodebuild test` pass |
 | `apple-platforms` (new) | macos-26 | Xcode 26.6 (Swift 6.3.3) | `xcodebuild build` for generic iOS, tvOS, watchOS and visionOS, warnings as errors |
-| `linux-tests` | ubuntu-24.04 | `swift:6.2` (6.2.4), git 2.43.0 | 186 tests pass, a minute of fuzzing |
-| `linux-arm64-tests` (new) | ubuntu-24.04-arm | `swift:6.2` (6.2.4), git 2.43.0 | 186 tests pass, a minute of fuzzing |
-| `linux-jammy-tests` (new) | ubuntu-24.04 | `swift:6.2-jammy` (6.2.4) on Ubuntu 22.04, glibc 2.35, git 2.34.1 | 186 tests pass |
-| `newest-swift-tests` (new) | ubuntu-24.04 | `swift:6.4.1-noble` (6.4.1), git 2.43.0 | 186 tests pass |
+| `linux-tests` | ubuntu-24.04 | `swift:6.2` (6.2.4), git 2.43.0 | 187 tests pass, a minute of fuzzing |
+| `linux-arm64-tests` (new) | ubuntu-24.04-arm | `swift:6.2` (6.2.4), git 2.43.0 | 187 tests pass, a minute of fuzzing |
+| `linux-jammy-tests` (new) | ubuntu-24.04 | `swift:6.2-jammy` (6.2.4) on Ubuntu 22.04, glibc 2.35, git 2.34.1 | 187 tests pass |
+| `newest-swift-tests` (new) | ubuntu-24.04 | `swift:6.4.1-noble` (6.4.1), git 2.43.0 | 187 tests pass |
 
 Ubuntu 22.04 is there for its glibc, older than 2.39, on which the
 tests once didn't build (`memmem`, below). It doesn't fuzz: its
