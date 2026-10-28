@@ -139,9 +139,9 @@ records those runs.
   Linux, and Xcode 26.6 on macOS; the tests have also passed on 6.2.0
   (Xcode 26.0.1).
 - macOS, iOS, tvOS, watchOS, or visionOS 26, whose standard library has
-  `Span`; or Linux. CI tests macOS and Ubuntu 24.04 on x86_64 and arm64,
-  and builds for the other Apple platforms; the tests have also passed
-  on Ubuntu 22.04 and RHEL 9. The library builds for Windows,
+  `Span`; or Linux. CI tests macOS, Ubuntu 24.04 on x86_64 and arm64,
+  and Ubuntu 22.04, and builds for the other Apple platforms; the tests
+  have also passed on RHEL 9. The library builds for Windows,
   WebAssembly (WASI), and the static Linux SDK, but its tests don't run
   there yet.
 - No dependencies.

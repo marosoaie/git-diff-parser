@@ -12,9 +12,9 @@ The fixture suites `swift test` always runs are described in
 |---|---|---|
 | [Every commit of 9 clones](#every-commit-of-local-clones) against `git show --numstat` | 137,159 commits | All match, after two differences of git's own reading |
 | [Real pull requests](#real-pull-requests-against-github) against GitHub's per-file counts | 106 pull requests, 23 repositories | All match |
-| [Git settings](#git-settings-that-change-the-diff) that change the diff's text | 6 settings | 5 match; a coloured diff reads as no files ([A1](#a1-coloured-diffs)) |
-| [Platforms in CI](#platforms-in-ci), every pull request | 5 jobs: macOS, 4 more Apple platforms, Linux on x86_64 and arm64, Swift 6.4.1 | All pass |
-| [Platforms tried once](#platforms-tried-once) | 6 | Tests pass on 3; the library builds on all 6 |
+| [Git settings](#git-settings-that-change-the-diff) that change the diff's text | 6 settings | 5 match; a coloured diff reads as no files, as now documented ([A1](#a1-coloured-diffs)) |
+| [Platforms in CI](#platforms-in-ci), every pull request | 6 jobs: macOS, 4 more Apple platforms, Linux on x86_64 and arm64, Ubuntu 22.04, Swift 6.4.1 | All pass |
+| [Platforms tried once](#platforms-tried-once) | 5 | Tests pass on 2; the library builds on all 5 |
 
 ## Environment
 
@@ -159,7 +159,7 @@ the oracle tests can take are now among them:
 | `--relative=Sources` | Matches (44 files) | Not added: paths are relative to the subdirectory, which the tree checks don't allow |
 | `--diff-algorithm=histogram` | Matches | A new `GitApplyOracleTests` variant |
 | `--find-copies` | Matches | The sweep, and the oracle's `-M -C --find-copies-harder` variant |
-| `color.ui=always` | Reads as no files and no damage | Not tested: [A1](#a1-coloured-diffs) |
+| `color.ui=always` | Reads as no files and no damage | Documented, not tested: [A1](#a1-coloured-diffs) |
 
 ### A1: coloured diffs
 
@@ -168,13 +168,16 @@ with an SGR escape (`\e[1mdiff --git …`), so none is recognised: the
 whole diff reads as preamble, with no files and no damage reported.
 Steward already asks git for `--no-color`. Whether the library should
 strip the escapes, report the input as damaged, or keep this behaviour
-and document it is a public API question for step 5.1, so 5.0 leaves the
-behaviour as it is and doesn't pin it in a test.
+is a public API question. The maintainer's answer: document it now and
+decide in step 5.1. So `DiffEventParser`, `Diff`, `DiffSummary` and
+`ChangedLines` say a coloured diff reads as no files and no damage, and
+to pass `--no-color`, as do Getting Started, the README and
+INTERNALS.md; the behaviour is unchanged, and no test pins it.
 
 ## Platforms in CI
 
 These run on every pull request and every push to `main`
-([CI](../.github/workflows/ci.yml)). Run 40662552180 is the first with all
+([CI](../.github/workflows/ci.yml)). Run [40674641056](https://github.com/marosoaie/git-diff-parser/actions/runs/40674641056) is the first with all
 of them:
 
 | Check | Runner | Toolchain | Result |
@@ -183,7 +186,12 @@ of them:
 | `apple-platforms` (new) | macos-26 | Xcode 26.6 (Swift 6.3.3) | `xcodebuild build` for generic iOS, tvOS, watchOS and visionOS, warnings as errors |
 | `linux-tests` | ubuntu-24.04 | `swift:6.2` (6.2.4), git 2.43.0 | 186 tests pass, a minute of fuzzing |
 | `linux-arm64-tests` (new) | ubuntu-24.04-arm | `swift:6.2` (6.2.4), git 2.43.0 | 186 tests pass, a minute of fuzzing |
+| `linux-jammy-tests` (new) | ubuntu-24.04 | `swift:6.2-jammy` (6.2.4) on Ubuntu 22.04, glibc 2.35, git 2.34.1 | 186 tests pass |
 | `newest-swift-tests` (new) | ubuntu-24.04 | `swift:6.4.1-noble` (6.4.1), git 2.43.0 | 186 tests pass |
+
+Ubuntu 22.04 is there for its glibc, older than 2.39, on which the
+tests once didn't build (`memmem`, below). It doesn't fuzz: its
+toolchain is `linux-tests`', so the minute would repeat that job's.
 
 Swift 6.4.1 (2026-10-12) is the newest release, pinned to its exact
 version so a new release changes CI only by a commit. It doesn't fuzz:
@@ -195,10 +203,11 @@ recipe's paths don't hold there. The recipe moves when the floor does.
 
 From a temporary workflow on the branch `claude/step-5-0-a-platforms-once`,
 never merged: runs [40655449255], [40660257843] and [40662552199].
+Ubuntu 22.04 (`swift:6.2-jammy`) was tried there first, and passed once
+the test support stopped using `memmem`; it is now a CI job.
 
 | Platform | Runner and toolchain | Result |
 |---|---|---|
-| Ubuntu 22.04.5 (`swift:6.2-jammy`) | ubuntu-24.04; Swift 6.2.4, git 2.34.1 | Builds with warnings as errors; 186 tests pass, once the test support stopped using `memmem` |
 | RHEL 9.8 (`swift:6.2-rhel-ubi9`) | ubuntu-24.04; Swift 6.2.4, git 2.52.0 | Builds with warnings as errors; 186 tests pass, once `diffutils` was installed for the plain `diff -ruN` test |
 | macOS 26.6.2 on the Swift 6.2 floor | macos-26; Xcode 26.0.1 (Apple Swift 6.2, swiftlang-6.2.0.19.9), which the runner's `Xcode_26.0.app` is | `swift test` (186 tests) and `xcodebuild test` pass. Builds for the other Apple platforms couldn't run: the runner has their SDKs only for its default Xcode |
 | Windows Server 2025 | windows-2025-vs2026; Swift 6.2.4 (compnerd/gha-setup-swift v0.5.1) | The library builds with warnings as errors, and the tests build; 158 tests pass and 25 fail, all in the test support, which runs git, xz and sh through `/usr/bin/env`, and in the documentation check, which reads paths with `/` |
@@ -216,8 +225,8 @@ Fixed in the test support:
 - The test support's marker search used `memmem`, which glibc before 2.39
   (Ubuntu 22.04, RHEL 9), Windows and WASI don't declare, so the tests
   didn't build there; it uses `memchr` and `memcmp` now. The library was
-  never affected. No CI job builds against an older glibc, so only a
-  rerun of the one-off jobs would catch a return.
+  never affected. `linux-jammy-tests` builds against glibc 2.35 on
+  every pull request, so a return fails CI.
 - The sweep's `git show` runs failed with `EBADF` on Swift concurrency's
   threads, which drain no autorelease pool, until the test support's
   subprocess runner got a pool of its own on Darwin. The sweep is its
@@ -226,9 +235,11 @@ Fixed in the test support:
 Intended, and explained above: the two differences of `git show`'s
 reading, GitHub's refusals and its zero counts for binary files.
 
-Open:
+Documented, and open for step 5.1: [A1](#a1-coloured-diffs),
+coloured diffs.
 
-- [A1](#a1-coloured-diffs): coloured diffs, for step 5.1.
+In the backlog:
+
 - On Windows the test support runs commands through `/usr/bin/env`, and
   the documentation check reads paths with `/`, so the 25 tests that run
   git, xz or sh, or read the documents, fail there; the library and the
