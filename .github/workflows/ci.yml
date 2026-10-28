@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, claude/step-5-0-a-platforms-once]
 
 concurrency:
   group: ci-${{ github.ref }}

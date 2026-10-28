@@ -1,0 +1,122 @@
+# Temporary (step 5.0 Track A): platforms tried once, on this branch only.
+# Never merged; the run links go into docs/validation.md.
+name: Platforms once
+
+on:
+  push:
+    branches: [claude/step-5-0-a-platforms-once]
+
+jobs:
+  linux-distributions:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [swift:6.2-jammy, swift:6.2-rhel-ubi9]
+    steps:
+      - name: Install git and xz
+        run: |
+          if ! command -v git >/dev/null || ! command -v xz >/dev/null; then
+            if command -v apt-get >/dev/null; then
+              apt-get update
+              apt-get install -y --no-install-recommends git xz-utils ca-certificates
+            else
+              dnf install -y git-core xz
+            fi
+          fi
+          head -2 /etc/os-release
+          git --version
+          swift --version
+      - uses: actions/checkout@v7
+      - name: Build
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
+      - name: Run tests
+        run: swift test --skip-build
+
+  macos-swift-6-2-floor:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select the oldest Xcode 26
+        run: |
+          ls -d /Applications/Xcode*.app
+          xcode="$(printf '%s\n' /Applications/Xcode_26*.app | sort -V | head -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          swift --version
+          sw_vers
+      - name: Build
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
+      - name: Run tests
+        run: swift test --skip-build
+      - name: Run tests in Xcode
+        if: ${{ !cancelled() }}
+        run: xcodebuild test -scheme git-diff-parser -destination platform=macOS -quiet
+      - name: Build for the other Apple platforms
+        if: ${{ !cancelled() }}
+        run: |
+          for platform in iOS tvOS watchOS visionOS; do
+            xcodebuild build -scheme git-diff-parser -destination "generic/platform=$platform" \
+              -derivedDataPath "$RUNNER_TEMP/$platform" -quiet SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+          done
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: compnerd/gha-setup-swift@775d3f4111c5be58a0f62f2efdd353bb8fac15c7
+        with:
+          swift-version: swift-6.2.4-release
+          swift-build: 6.2.4-RELEASE
+      - uses: actions/checkout@v7
+      - name: Build the library
+        run: |
+          swift --version
+          swift build -Xswiftc -warnings-as-errors
+      - name: Build the tests
+        if: ${{ !cancelled() }}
+        run: swift build --build-tests
+      - name: Run tests
+        if: ${{ !cancelled() }}
+        run: swift test --skip-build
+
+  swift-sdks:
+    name: ${{ matrix.sdk }}
+    runs-on: ubuntu-latest
+    container: swift:6.2.4-noble
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sdk: wasm
+            url: https://download.swift.org/swift-6.2.4-release/wasm-sdk/swift-6.2.4-RELEASE/swift-6.2.4-RELEASE_wasm.artifactbundle.tar.gz
+            checksum: 32fdb8772d73bb174f77b5c59bc88a0d55003d75712832129394d3465158fb43
+            id: swift-6.2.4-RELEASE_wasm
+          - sdk: static-linux
+            url: https://download.swift.org/swift-6.2.4-release/static-sdk/swift-6.2.4-RELEASE/swift-6.2.4-RELEASE_static-linux-0.1.0.artifactbundle.tar.gz
+            checksum: 24bdf84495dd31a6de2eb679647c1982b747bfbfe1a2060c779d84dcecd902a4
+            id: x86_64-swift-linux-musl
+    steps:
+      - name: Install git and xz
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git xz-utils ca-certificates
+      - uses: actions/checkout@v7
+      - name: Install the Swift SDK
+        run: |
+          swift --version
+          swift sdk install "${{ matrix.url }}" --checksum "${{ matrix.checksum }}"
+          swift sdk list
+      - name: Build the library
+        run: swift build --swift-sdk "${{ matrix.id }}" -Xswiftc -warnings-as-errors
+      - name: Build the tests
+        if: ${{ !cancelled() }}
+        run: swift build --build-tests --swift-sdk "${{ matrix.id }}"
+      - name: Run tests
+        if: ${{ !cancelled() }}
+        run: swift test --skip-build --swift-sdk "${{ matrix.id }}"
