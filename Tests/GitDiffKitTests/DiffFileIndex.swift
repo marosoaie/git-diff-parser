@@ -3,14 +3,18 @@ import Foundation
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(ucrt)
+import ucrt
 #endif
 
 /// Where each file of a large diff starts, for cutting windows of whole
 /// files out of it.
 ///
-/// The searches go through libc's `memmem`, which runs optimized even in a
-/// debug build: a byte loop in Swift would take seconds over the kernel
-/// diff's 74 MB, and corelibs Foundation's `Data.range(of:in:)` minutes.
+/// The searches go through libc's `memchr` and `memcmp`, which run
+/// optimized even in a debug build: a byte loop in Swift would take seconds
+/// over the kernel diff's 74 MB, and corelibs Foundation's
+/// `Data.range(of:in:)` minutes. Not `memmem`, which glibc before 2.39
+/// (Ubuntu 22.04, RHEL 9), Windows and WASI don't declare.
 struct DiffFileIndex {
     let data: Data
     /// Where each `diff ` line starts, then `data.count`.
@@ -40,14 +44,21 @@ struct DiffFileIndex {
     private static func offsets(of marker: String, in data: Data) -> [Int] {
         let pattern = Array(marker.utf8)
         return unsafe data.withUnsafeBytes { bytes in
-            guard let base = bytes.baseAddress else { return [] }
-            let count = bytes.count
+            guard let base = bytes.baseAddress, let first = pattern.first else { return [] }
+            let end = bytes.count - pattern.count
             return Array(sequence(state: 0) { start -> Int? in
-                guard start < count, let found = unsafe memmem(base + start, count - start, pattern, pattern.count)
-                else { return nil }
-                let offset = unsafe base.distance(to: UnsafeRawPointer(found))
-                start = offset + pattern.count
-                return data.startIndex + offset
+                // A cursor: memchr finds each candidate's first byte, and a
+                // candidate memcmp rejects resumes the scan right after it.
+                var candidate = start
+                while candidate <= end, let found = unsafe memchr(base + candidate, Int32(first), end + 1 - candidate) {
+                    let offset = unsafe base.distance(to: UnsafeRawPointer(found))
+                    if unsafe memcmp(found, pattern, pattern.count) == 0 {
+                        start = offset + pattern.count
+                        return data.startIndex + offset
+                    }
+                    candidate = offset + 1
+                }
+                return nil
             })
         }
     }
