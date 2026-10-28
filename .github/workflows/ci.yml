@@ -101,7 +101,9 @@ jobs:
             exit 1
           fi
 
-  # The Swift 6.2 floor on x86_64 and arm64, and the newest released Swift,
+  # The Swift 6.2 floor on x86_64 and arm64, and on Ubuntu 22.04, whose
+  # glibc predates 2.39 and so lacks declarations newer ones have (memmem
+  # broke the test build there once); and the newest released Swift,
   # pinned exactly so a new release can't change the job underneath us.
   # Each keeps its own check name.
   linux-tests:
@@ -119,6 +121,9 @@ jobs:
           - name: linux-arm64-tests
             runner: ubuntu-24.04-arm
             image: swift:6.2
+          - name: linux-jammy-tests
+            runner: ubuntu-latest
+            image: swift:6.2-jammy
           - name: newest-swift-tests
             runner: ubuntu-latest
             image: swift:6.4.1-noble
@@ -158,8 +163,10 @@ jobs:
       # tests. libFuzzer ships with Linux toolchains only, and SwiftPM can't
       # link a libFuzzer executable, so it builds the library instrumented
       # and links Fuzz/FuzzTarget.swift with swiftc. A finding fails the
-      # step and its input is uploaded. Only on Swift 6.2: from 6.4, SwiftPM
-      # builds with Swift Build, which keeps modules and objects elsewhere.
+      # step and its input is uploaded. Only on the swift:6.2 images: from
+      # 6.4, SwiftPM builds with Swift Build, which keeps modules and objects
+      # elsewhere, and the jammy job runs linux-tests' toolchain, so a minute
+      # there would repeat its coverage rather than widen it.
       - name: Fuzz
         if: matrix.image == 'swift:6.2'
         run: |
