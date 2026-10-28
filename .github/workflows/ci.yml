@@ -175,7 +175,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: fuzz-findings
+          name: fuzz-findings-${{ matrix.name }}
           path: .build/fuzz/crash-*
           # The findings are under .build, which counts as hidden.
           include-hidden-files: true
