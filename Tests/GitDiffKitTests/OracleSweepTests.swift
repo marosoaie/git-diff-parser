@@ -27,8 +27,7 @@ struct OracleSweepTests {
         try commits.forEach { commit in
             let bytes = try OracleSweep.patch(of: commit, in: clone)
             let summary = DiffSummary.of(bytes)
-            let ours = GitApply.numstat(of: summary.files)
-            let oracle = OracleSweep.entries(try OracleSweep.numstat(of: commit, in: clone), asTextReads: summary.files)
+            let (ours, oracle) = OracleSweep.comparable(summary.files, try OracleSweep.numstat(of: commit, in: clone))
             let diff = Diff.of(bytes)
             let rendersBack = [UInt8](rendering: diff) == bytes
             guard ours == oracle, summary.damage.isEmpty, diff.damage.isEmpty, rendersBack else {
