@@ -38,6 +38,7 @@ struct GitApplyOracleTests {
         Variant(gitOptions: ["-c", "core.quotePath=false"], diffOptions: ["-M"]),
         Variant(diffOptions: ["--src-prefix=i/", "--dst-prefix=w/", "-M"]),
         Variant(gitOptions: ["-c", "diff.suppressBlankEmpty=true"], diffOptions: ["-M"]),
+        Variant(diffOptions: ["--diff-algorithm=histogram", "-M"]),
     ]
 
     @Test("headers and line counts match git apply --summary and --numstat -z", arguments: variants)
@@ -67,6 +68,18 @@ struct GitApplyOracleTests {
                 )
             }
         }
+    }
+
+    // Not a variant: git apply would need -p0 to read it.
+    @Test("a diff without prefixes, as diff.noprefix writes it, reads as the same files as one with them")
+    func noPrefix() throws {
+        let files = try [[], ["-c", "diff.noprefix=true"]].map { gitOptions in
+            try Self.withDiff(Variant(gitOptions: gitOptions, diffOptions: ["-M"])) { diff, _ in
+                DiffSummary.files(in: try Array(Data(contentsOf: diff)))
+            }
+        }
+        #expect(files[0].count > 20)
+        Oracle.expectEqualEntries(files[1], files[0])
     }
 
     @Test("--full-index writes 40-digit IDs, all zeros on the missing side")
