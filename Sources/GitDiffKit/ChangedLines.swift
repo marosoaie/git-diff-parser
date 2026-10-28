@@ -168,6 +168,9 @@ public struct LineRangeSet: Sendable, Equatable {
 /// Combined diffs of merges (`diff --cc`) are skipped and contribute no
 /// lines; for the lines a merge changed, diff it against its first parent
 /// (`--diff-merges=first-parent`) or use a three-dot diff.
+///
+/// A coloured diff (`--color`, `color.ui=always`) reads as no files. Pass
+/// `--no-color` to git.
 public struct ChangedLines: Sendable, Equatable {
     /// Each file's added lines, keyed by its new path; a file with no
     /// added lines has no entry.

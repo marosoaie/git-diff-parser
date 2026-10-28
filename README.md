@@ -113,6 +113,9 @@ default, so it takes only the events it needs.
 - Merge commits' combined diffs (`diff --cc`) are recognized and skipped:
   they contribute no lines. Diff a merge against its first parent
   (`--diff-merges=first-parent`) to see its changes.
+- Not coloured output (`--color`, `color.ui=always`): an escape code
+  starts every header line, so it reads as no files and no damage. Pass
+  `--no-color`.
 
 Malformed, truncated, or adversarial input never traps or throws. The
 parser repairs damage locally or abandons the damaged file, picks up

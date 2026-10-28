@@ -14,6 +14,9 @@
 /// its ``DamageReport`` is in ``damage``. Combined diffs of merges are listed
 /// with format `.combined` and no line counts, because their hunks are
 /// skipped (see ``FileHeader/Format-swift.enum/combined(parents:)``).
+///
+/// A coloured diff (`--color`, `color.ui=always`) reads as no files and no
+/// damage. Pass `--no-color` to git.
 public struct DiffSummary: Sendable, Equatable {
     /// One file of the diff.
     public struct File: Sendable, Equatable {

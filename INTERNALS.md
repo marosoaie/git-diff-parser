@@ -92,6 +92,13 @@ and on the new side a deletion, in any zone, but only when the zone is
 written out (GNU diff writes it; Apple's diff doesn't, and git doesn't read
 those either).
 
+Coloured output (`--color`, `color.ui=always`) isn't read. An SGR escape
+code starts every header line, so none passes the byte-level gate, no file
+begins, and every line is unrecognized: the full model keeps them all in
+`Diff.preamble`, and nothing is reported as damage, since nothing was cut
+short. Whether to strip the codes or report such input is undecided; the
+entry points' documentation says to pass `--no-color`.
+
 Changed lines are stored as sorted, merged ranges (`LineRangeSet`) rather
 than per-line sets, so memory scales with the number of *edits*, not lines:
 a full-file rewrite is a single range. Membership tests are binary searches,
