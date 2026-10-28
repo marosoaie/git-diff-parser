@@ -26,6 +26,9 @@
 /// is missing, and its ``DamageReport`` is in ``damage``. Combined diffs of
 /// merges are kept with format `.combined`, their raw header and no hunks
 /// (see ``FileHeader/Format-swift.enum/combined(parents:)``).
+///
+/// A coloured diff (`--color`, `color.ui=always`) has no files and no
+/// damage: all of it lands in ``preamble``. Pass `--no-color` to git.
 public struct Diff: Sendable, Equatable {
     /// Lines before the first file, such as a `git show` commit header or
     /// a mail's headers. Later unrecognized lines belong to the file they

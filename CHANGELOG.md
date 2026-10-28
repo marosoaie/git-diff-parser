@@ -7,6 +7,13 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 
 ## Unreleased
 
+### Changed
+
+- **Coloured diffs are documented.** Output of `git diff --color`, or
+  of git with `color.ui=always`, reads as no files and no damage, since
+  an escape code starts every header line. The parser and the
+  collectors now say so, and say to pass `--no-color`.
+
 ## 0.2.0 — 2026-10-26
 
 GitDiffKit grows from changed-line ranges into a layered diff model: a

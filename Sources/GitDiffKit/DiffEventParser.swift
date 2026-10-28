@@ -24,6 +24,11 @@
 /// and `endFile`, but its hunks produce no events. For the lines a merge
 /// changed, diff it against its first parent (`--diff-merges=first-parent`).
 ///
+/// Coloured output (`--color`, or `color.ui=always`) isn't read: an escape
+/// code starts every header line, so no file ever begins, and the whole
+/// diff arrives as unrecognized lines, with no damage reported. Where
+/// colour may be configured, generate the diff with `--no-color`.
+///
 /// Damaged input never traps or throws: the parser recovers locally or
 /// abandons the damaged file, and reports either through `damage(_:)`.
 public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {

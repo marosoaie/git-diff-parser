@@ -83,7 +83,7 @@ enum RealWorldFixtureStore {
         }
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
-        let raw = try await download(fixture.remoteURL)
+        let raw = try await download(URLRequest(url: fixture.remoteURL))
         let diff = fixture.remoteIsXZCompressed ? try decompressXZ(raw) : raw
         try validate(diff, from: fixture.remoteURL.absoluteString)
         try diff.write(to: cached, options: .atomic)
@@ -120,14 +120,18 @@ enum RealWorldFixtureStore {
         #endif
     }
 
-    private static func download(_ url: URL) async throws -> Data {
+    /// The body `request` fetches, tried three times. A refusal's error
+    /// quotes the start of the reply, where GitHub, say, gives its reason.
+    static func download(_ request: URLRequest) async throws -> Data {
+        let url = request.url?.absoluteString ?? ""
         var lastError: (any Error)?
         for attempt in 1...3 {
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                let (data, response) = try await URLSession.shared.data(for: request)
                 let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                 guard status == 200, !data.isEmpty else {
-                    throw FixtureError("GET \(url) returned status \(status)")
+                    let reply = String(decoding: data.prefix(300), as: UTF8.self)
+                    throw FixtureError("GET \(url) returned status \(status): \(reply)")
                 }
                 return data
             } catch {
