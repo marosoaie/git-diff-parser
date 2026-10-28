@@ -193,6 +193,12 @@ its array's growth slack: 0.39 s, 381 MB.
   of it turns the old tree into exactly the new one. `git show`,
   `git log -p`, and `git format-patch` output render back too.
 
+- **Opt-in oracles** — two suites that run only when asked: one checks
+  every commit of local clones against `git show --numstat`, the other
+  real GitHub pull requests against GitHub's per-file counts.
+  [docs/validation.md](docs/validation.md) says how to run them and
+  records the last runs.
+
 Set `GIT_DIFF_PARSER_SKIP_NETWORK_TESTS=1` to skip the real-world suite
 (e.g. in offline environments). Tests pass under both `swift test` and
 Xcode/`xcodebuild test`, whose build-product layouts differ.
