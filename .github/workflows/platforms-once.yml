@@ -120,3 +120,16 @@ jobs:
       - name: Run tests
         if: ${{ !cancelled() }}
         run: swift test --skip-build --swift-sdk "${{ matrix.id }}"
+
+  fuzz-layout-swift-6-4:
+    runs-on: ubuntu-latest
+    container: swift:6.4.1-noble
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the library for fuzzing and list what it made
+        run: |
+          swift build -c release --target GitDiffKit --scratch-path .build/fuzz -Xswiftc -sanitize=fuzzer,address
+          ls -la .build/fuzz .build/fuzz/release || true
+          find .build/fuzz -name '*.swiftmodule' -not -path '*/checkouts/*' | head -20
+          find .build/fuzz -name '*.o' -path '*GitDiffKit*' | head -5
