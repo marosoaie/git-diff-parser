@@ -158,8 +158,10 @@ jobs:
       # tests. libFuzzer ships with Linux toolchains only, and SwiftPM can't
       # link a libFuzzer executable, so it builds the library instrumented
       # and links Fuzz/FuzzTarget.swift with swiftc. A finding fails the
-      # step and its input is uploaded.
+      # step and its input is uploaded. Only on Swift 6.2: from 6.4, SwiftPM
+      # builds with Swift Build, which keeps modules and objects elsewhere.
       - name: Fuzz
+        if: matrix.image == 'swift:6.2'
         run: |
           swift build -c release --target GitDiffKit --scratch-path .build/fuzz -Xswiftc -sanitize=fuzzer,address
           swiftc -O -sanitize=fuzzer,address -parse-as-library -strict-memory-safety -warnings-as-errors \
