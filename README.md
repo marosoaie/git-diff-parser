@@ -127,13 +127,23 @@ Seeded mutation tests and a libFuzzer target check these guarantees;
 Results are checked against git: on the Linux kernel, redis, and
 swift-argument-parser diffs, every file's line counts match
 `git apply --numstat`, headers match `git apply --summary`, and the full
-model renders each diff back to its input byte for byte.
+model renders each diff back to its input byte for byte. Opt-in suites
+did the same for every commit of nine public repositories (137,159
+commits, against `git show --numstat`) and for 106 GitHub pull requests
+(against GitHub's own counts); [docs/validation.md](docs/validation.md)
+records those runs.
 
 ## Requirements
 
-- Swift 6.2 or later.
+- Swift 6.2 or later. CI tests 6.2.4 and the newest release, 6.4.1, on
+  Linux, and Xcode 26.6 on macOS; the tests have also passed on 6.2.0
+  (Xcode 26.0.1).
 - macOS, iOS, tvOS, watchOS, or visionOS 26, whose standard library has
-  `Span`; or Linux. CI tests macOS and Ubuntu (the `swift:6.2` image).
+  `Span`; or Linux. CI tests macOS, Ubuntu 24.04 on x86_64 and arm64,
+  and Ubuntu 22.04, and builds for the other Apple platforms; the tests
+  have also passed on RHEL 9. The library builds for Windows,
+  WebAssembly (WASI), and the static Linux SDK, but its tests don't run
+  there yet.
 - No dependencies.
 
 ## Documentation
