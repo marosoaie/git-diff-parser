@@ -13,6 +13,19 @@ enum Subprocess {
         environment: [String: String] = [:],
         input: URL? = nil
     ) throws -> Data {
+        #if canImport(Darwin)
+        // Swift concurrency's threads drain no autorelease pool between
+        // calls: without one per call, the oracle sweep's parallel cases
+        // lost a few of their 17,000 git runs to EBADF, every time.
+        try autoreleasepool { try run(arguments, in: directory, environment: environment, input: input) }
+        #else
+        try run(arguments, in: directory, environment: environment, input: input)
+        #endif
+    }
+
+    private static func run(
+        _ arguments: [String], in directory: URL?, environment: [String: String], input: URL?
+    ) throws -> Data {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = arguments
