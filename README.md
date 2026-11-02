@@ -40,6 +40,9 @@ let package = Package(
 )
 ```
 
+`platforms:` is for Apple platforms, where GitDiffKit needs the 26
+releases; Linux ignores it.
+
 Then parse a diff, such as the output of `git diff origin/main...HEAD`,
 and ask about its lines:
 
@@ -52,8 +55,10 @@ let greeting = changes.ranges(in: "Sources/App/Greeting.swift")   // [2...3]
 let isChanged = changes.contains(line: 3, in: "Sources/App/Greeting.swift")   // true
 ```
 
-The values in the comments are for the small diff in
-[Getting Started](Sources/GitDiffKit/GitDiffKit.docc/GettingStarted.md),
+`diffText` is a `String`: from a file, say, read with Foundation as
+`String(decoding: try Data(contentsOf: url), as: UTF8.self)`, which
+doesn't throw on bytes that aren't UTF-8. The values in the comments are
+for the small diff in [Getting Started](Sources/GitDiffKit/GitDiffKit.docc/GettingStarted.md),
 which edits `Greeting.swift`, adds a line to `README.md`, and deletes
 another file. Line numbers are new-side numbers, the ones in build logs
 and in GitHub's pull request view, so `contains(line:in:)` tells a
@@ -154,8 +159,11 @@ has the articles — [Getting Started](Sources/GitDiffKit/GitDiffKit.docc/Gettin
 [Choosing a Collector](Sources/GitDiffKit/GitDiffKit.docc/ChoosingACollector.md),
 [Streaming Large Diffs](Sources/GitDiffKit/GitDiffKit.docc/Streaming.md),
 and [Handling Damaged Input](Sources/GitDiffKit/GitDiffKit.docc/DamagedInput.md)
-— and every public symbol is documented. To read it rendered, open the
-package in Xcode and choose Product › Build Documentation, or run:
+— and every public symbol is documented. The articles link to each other
+with DocC's `<doc:…>` links, which GitHub shows as plain text; on
+GitHub, open them from this list. To read it rendered, with working
+links, open the package in Xcode and choose Product › Build
+Documentation, or run:
 
 ```sh
 xcodebuild docbuild -scheme git-diff-parser -destination platform=macOS -derivedDataPath .build/docs
