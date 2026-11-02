@@ -2,7 +2,9 @@
 
 What was run to check GitDiffKit against git and GitHub on diffs beyond
 the committed fixtures, and on platforms beyond the two CI tested, as of
-2026-10-28 (plan step 5.0, Track A). Each section says how to rerun it.
+2026-10-28 (plan step 5.0, Track A), and whether a newcomer can use it
+from the docs alone (Track C, 2026-11-02). Each section says how to
+rerun it.
 The fixture suites `swift test` always runs are described in
 [INTERNALS.md](../INTERNALS.md#validation-against-real-world-diffs).
 
@@ -15,6 +17,7 @@ The fixture suites `swift test` always runs are described in
 | [Git settings](#git-settings-that-change-the-diff) that change the diff's text | 6 settings | 5 match; a coloured diff reads as no files, as now documented ([A1](#a1-coloured-diffs)) |
 | [Platforms in CI](#platforms-in-ci), every pull request | 6 jobs: macOS, 4 more Apple platforms, Linux on x86_64 and arm64, Ubuntu 22.04, Swift 6.4.1 | All pass |
 | [Platforms tried once](#platforms-tried-once) | 5 | Tests pass on 2; the library builds on all 5 |
+| [A cold read](#a-cold-read) of the README | A new package on Linux, 3 real diffs | Built and right the first time; 3 confusions, fixed in the docs |
 
 ## Environment
 
@@ -220,6 +223,31 @@ the test support stopped using `memmem`; it is now a CI job.
 [40660257843]: https://github.com/marosoaie/git-diff-parser/actions/runs/40660257843
 [40662552199]: https://github.com/marosoaie/git-diff-parser/actions/runs/40662552199
 
+## A cold read
+
+A fresh agent, given the README and the Getting Started article it
+links and no source, made a new executable package in the `swift:6.2`
+container (Swift 6.2.4, aarch64): the README's `Package.swift` with the
+names changed, and a program that reads a diff file into a `String` and
+prints `ChangedLines`' paths and ranges. It resolved 0.2.0, built, and
+listed the right lines the first time, about two minutes in all, for
+three diffs from CocoaLumberjack's history, which it spot-checked
+against `git diff -U0`. It got stuck nowhere, and three things confused
+it; this record's pull request fixes the docs for each:
+
+- **G1.** Getting Started links the other articles with DocC's
+  `<doc:…>`, which GitHub shows as plain text. The README now says so,
+  and where to open them instead.
+- **G2.** The README didn't say what `diffText` is. It now says it's a
+  `String`, and how to read one from a file.
+- **G3.** The README's `platforms: [.macOS(.v26)]` made it wonder
+  whether a Linux package should keep it. The README now says Linux
+  ignores it.
+
+To rerun it, give someone new only the README. Steward's half of the
+same read, porting a danger-swift Dangerfile, is in
+[swift-steward's record](https://github.com/marosoaie/swift-steward/blob/main/docs/validation.md#cocoalumberjack-a-cold-read).
+
 ## Findings
 
 Fixed in the test support:
@@ -233,6 +261,8 @@ Fixed in the test support:
   threads, which drain no autorelease pool, until the test support's
   subprocess runner got a pool of its own on Darwin. The sweep is its
   check.
+
+Fixed in the docs: the cold read's three confusions, [above](#a-cold-read).
 
 Intended, and explained above: the two differences of `git show`'s
 reading, GitHub's refusals and its zero counts for binary files.
