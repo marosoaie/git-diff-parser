@@ -7,8 +7,17 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 
 ## Unreleased
 
+## 0.2.1 — 2026-11-03
+
+A documentation release: the API and behaviour are 0.2.0's. It's
+GitDiffKit's first immutable release, so its tag can't be moved or
+deleted.
+
 ### Changed
 
+- **Install lines pin a minor release.** The README and the Getting
+  Started article depend on `.upToNextMinor(from: "0.2.1")`, since until
+  1.0 a minor release may break the API.
 - **Coloured diffs are documented.** Output of `git diff --color`, or
   of git with `color.ui=always`, reads as no files and no damage, since
   an escape code starts every header line. The parser and the
