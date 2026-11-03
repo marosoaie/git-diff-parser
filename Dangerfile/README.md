@@ -9,11 +9,11 @@ their tests in [`Tests/DangerfileTests`](Tests/DangerfileTests).
 
 It's a package of its own, beside GitDiffKit's: GitDiffKit's
 `Package.swift` never names it, so the library still has no dependencies,
-and its users never fetch Steward. It depends on swift-steward's `main`
-branch at the revision `Package.resolved` pins, as Steward's
+and its users never fetch Steward. It depends on swift-steward 0.1.x, at
+the release `Package.resolved` pins, as Steward's
 [quickstart](https://github.com/marosoaie/swift-steward/blob/main/docs/quickstart.md)
 sets a Dangerfile up; `swift package update --package-path Dangerfile`
-moves the pin.
+takes 0.1.x's fixes.
 
 From the repository's root:
 

@@ -1,5 +1,5 @@
 {
-  "originHash" : "5519a064a29b0bdecdc1643db4485bc5e6eccbca55258ed49eabf816b237758a",
+  "originHash" : "22484fa0587c603c1891d89cedb750d8328c5b0923bf4ae1f8f62aee94167d33",
   "pins" : [
     {
       "identity" : "git-diff-parser",
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/swift-steward.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "c7e697d9a519e0aeb4c09f32417f715643da46a3"
+        "revision" : "1fc1e25c9008aab57a186401bec248af04ee03d6",
+        "version" : "0.1.0"
       }
     }
   ],
