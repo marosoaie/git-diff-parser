@@ -23,7 +23,7 @@ let package = Package(
     name: "ReviewBot",
     platforms: [.macOS(.v26)],
     dependencies: [
-        .package(url: "https://github.com/marosoaie/git-diff-parser.git", from: "0.2.0"),
+        .package(url: "https://github.com/marosoaie/git-diff-parser.git", .upToNextMinor(from: "0.2.1")),
     ],
     targets: [
         .executableTarget(
