@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/git-diff-parser.git",
       "state" : {
-        "revision" : "ff1a0457f035446ad5e1ddb7b2ed18843515a98e",
-        "version" : "0.2.0"
+        "revision" : "bcceab9e8269cdcb229c464e806e8b452e1badd9",
+        "version" : "0.2.1"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/swift-steward.git",
       "state" : {
-        "revision" : "1fc1e25c9008aab57a186401bec248af04ee03d6",
-        "version" : "0.1.0"
+        "revision" : "fd3cd9339901380e0077ac166fd568875fb6d79c",
+        "version" : "0.1.1"
       }
     }
   ],
