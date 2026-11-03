@@ -64,10 +64,10 @@ jobs:
 
       # This repository's Dangerfile/, on the two logs above: it fails on
       # warnings on changed lines and posts one summary comment. Steward
-      # refuses push events. Pinned to a commit until steward-action tags v0.1.0.
+      # refuses push events.
       - name: Steward
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        uses: marosoaie/steward-action@c606a4a637221b3d86c35e18c71aa4bbf6d9fecb
+        uses: marosoaie/steward-action@v0.1.0
 
       - name: Test the Dangerfile's rules
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
