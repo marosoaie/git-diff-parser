@@ -6,6 +6,10 @@
 /// Reports are events; the library itself never logs.
 public struct DamageReport: Sendable, Equatable {
     /// What was wrong with the input.
+    ///
+    /// Minor releases may add reasons, so a `switch` over one needs an
+    /// `@unknown default`; ``DamageReport/severity`` classifies them all.
+    @nonexhaustive
     public enum Reason: Sendable, Equatable {
         /// A hunk ended before its declared counts were used up: a line
         /// that doesn't fit the remaining budgets, a `diff ` line, or the

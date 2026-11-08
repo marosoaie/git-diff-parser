@@ -75,7 +75,8 @@ over the bounds below, and
 ``DamageReport/Reason-swift.enum/tooManyParents``, for a combined diff
 of a merge with more than 64 parents. For a combined diff, an abandoned
 file drops everything up to the next `diff ` line, since its hunks
-can't be counted.
+can't be counted. Minor releases may add reasons, so a `switch` over
+them needs an `@unknown default`.
 
 ### Bounds
 
