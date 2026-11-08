@@ -80,10 +80,19 @@ struct ColouredDiffTests {
         #expect(afterColoured.files.last == Diff.of(alone).files.first)
     }
 
-    @Test("removing a code leaves none behind, so the model renders back to itself")
-    func nestedCodes() {
-        let diff = Diff.of(Array("\u{1B}\u{1B}[m[mdiff --git a/x b/x\n".utf8))
+    @Test(
+        "removing codes leaves none behind, and no empty last line, so the model renders back to itself",
+        arguments: ["\u{1B}\u{1B}[m[mdiff --git a/x b/x\n", "x\n\u{1B}[1m", "x\n\u{1B}[m\r"]
+    )
+    func renderingRoundTrip(input: String) {
+        let diff = Diff.of(Array(input.utf8))
         #expect(Diff.of([UInt8](rendering: diff)) == diff)
+    }
+
+    @Test("codes alone after the last newline are dropped, for any chunking", arguments: [1, 7, Int.max])
+    func trailingCodes(chunkSize: Int) {
+        let coloured = Array((Self.coloured + "\u{1B}[m\u{1B}[1m").utf8)
+        #expect(Diff.of(coloured, chunkSize: chunkSize) == Diff.of(Array(Self.plain.utf8)))
     }
 
     @Test(

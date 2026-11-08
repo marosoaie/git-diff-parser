@@ -1,4 +1,16 @@
 extension DiffEventParser {
+    /// Dispatches `line` without its colour codes. Codes alone after the
+    /// last newline are dropped: as an empty unterminated line, they'd
+    /// render as nothing, and the rendering wouldn't parse back.
+    mutating func dispatchWithoutColour(_ line: RawLine) {
+        let plain = removingColour(from: line)
+        guard plain.isTerminated || !plain.bytes.isEmpty || plain.endsWithCarriageReturn else {
+            endsWithColourCodesAlone = true
+            return
+        }
+        dispatch(plain)
+    }
+
     /// `line` without git's colour codes, so a coloured diff parses as a
     /// plain one. For a line that starts with an escape, any line of a
     /// coloured file, since git ends even context lines with a reset, and

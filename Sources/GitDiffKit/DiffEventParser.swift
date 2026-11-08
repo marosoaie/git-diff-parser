@@ -58,6 +58,9 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
     /// The number of the last line colour codes were removed from. Not a
     /// flag on each line: a wider `RawLine` slows every plain line.
     var lastLineWithColourCodes = 0
+    /// Whether the input ended with colour codes alone after its last
+    /// newline, which are dropped, so it ends at that newline.
+    var endsWithColourCodesAlone = false
 
     /// Creates a parser that sends its events to `consumer`.
     public init(consumer: Consumer, options: ParsingOptions = .init()) {
@@ -98,7 +101,7 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
         }
         endFile()
         lineNumber -= 1
-        if endsMidLine {
+        if endsMidLine, !endsWithColourCodesAlone {
             consumer.noNewlineAtEndOfInput()
         }
         return consumer
@@ -110,13 +113,13 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
         lineNumber += 1
         // Inline, so a plain line pays a compare and no copy.
         if line.bytes.first == DiffSyntax.escape || isInColouredFile {
-            dispatch(removingColour(from: line))
+            dispatchWithoutColour(line)
         } else {
             dispatch(line)
         }
     }
 
-    private mutating func dispatch(_ line: RawLine) {
+    mutating func dispatch(_ line: RawLine) {
         if hunk.isOpen {
             if hunk.isCombined {
                 processCombinedHunkLine(line)

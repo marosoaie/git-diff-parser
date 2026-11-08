@@ -98,7 +98,9 @@ line, or either line of a plain diff's `---`/`+++` pair, had codes,
 since git ends even context lines with a reset. A `diff ` line that ends
 with that reset is stripped when its file starts, since with
 `color.diff.meta=normal` the reset is its only code. A CRLF line's `\r`,
-which git writes before that reset, is moved back to the line ending. In
+which git writes before that reset, is moved back to the line ending.
+Codes alone after the last newline are dropped, so the input ends at that
+newline: as an empty unterminated line they'd render as nothing. In
 a plain diff only commit text or damage can start a line with `ESC`, so
 the codes a file's content holds are kept; a coloured line's own codes go
 with git's.
