@@ -14,6 +14,8 @@ enum DiffSyntax {
     /// The part of `\ No newline at end of file` that `git apply` checks;
     /// the rest depends on the locale.
     static let noNewlinePrefix = Array("\\ ".utf8)
+    /// Starts git's colour codes.
+    static let escape: UInt8 = 0x1B
 
     /// A header block past either bound abandons its file. Fixed rather
     /// than tied to the line cap, which a caller may raise to 64 MiB.

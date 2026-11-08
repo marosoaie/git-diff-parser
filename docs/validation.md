@@ -14,7 +14,7 @@ The fixture suites `swift test` always runs are described in
 |---|---|---|
 | [Every commit of 9 clones](#every-commit-of-local-clones) against `git show --numstat` | 137,159 commits | All match, after two differences of git's own reading |
 | [Real pull requests](#real-pull-requests-against-github) against GitHub's per-file counts | 106 pull requests, 23 repositories | All match |
-| [Git settings](#git-settings-that-change-the-diff) that change the diff's text | 6 settings | 5 match; a coloured diff reads as no files, as now documented ([A1](#a1-coloured-diffs)) |
+| [Git settings](#git-settings-that-change-the-diff) that change the diff's text | 6 settings | 5 match; a coloured diff read as no files, and since step 5.1 parses as the plain one ([A1](#a1-coloured-diffs)) |
 | [Platforms in CI](#platforms-in-ci), every pull request | 6 jobs: macOS, 4 more Apple platforms, Linux on x86_64 and arm64, Ubuntu 22.04, Swift 6.4.1 | All pass |
 | [Platforms tried once](#platforms-tried-once) | 5 | Tests pass on 2; the library builds on all 5 |
 | [A cold read](#a-cold-read) of the README | A new package on Linux, 3 real diffs | Built and right the first time; 3 confusions, fixed in the docs |
@@ -162,7 +162,7 @@ the oracle tests can take are now among them:
 | `--relative=Sources` | Matches (44 files) | Not added: paths are relative to the subdirectory, which the tree checks don't allow |
 | `--diff-algorithm=histogram` | Matches | A new `GitApplyOracleTests` variant |
 | `--find-copies` | Matches | The sweep, and the oracle's `-M -C --find-copies-harder` variant |
-| `color.ui=always` | Reads as no files and no damage | Documented, not tested: [A1](#a1-coloured-diffs) |
+| `color.ui=always` | Read as no files and no damage; since step 5.1, the plain diff's model | `GitApplyOracleTests`, every variant coloured: [A1](#a1-coloured-diffs) |
 
 ### A1: coloured diffs
 
@@ -176,6 +176,13 @@ decide in step 5.1. So `DiffEventParser`, `Diff`, `DiffSummary` and
 `ChangedLines` say a coloured diff reads as no files and no damage, and
 to pass `--no-color`, as do Getting Started, the README and
 INTERNALS.md; the behaviour is unchanged, and no test pins it.
+
+Step 5.1's answer: strip them. The parser removes git's colour codes, so
+a coloured diff parses as the plain one and renders back plain.
+`GitApplyOracleTests` renders every variant with `--color=always
+--color-moved --ws-error-highlight=all` and expects the plain diff's full
+model, for any chunking, and the same files from coloured `git show`,
+`git log -p` and `git format-patch` output.
 
 ## Platforms in CI
 
@@ -267,8 +274,7 @@ Fixed in the docs: the cold read's three confusions, [above](#a-cold-read).
 Intended, and explained above: the two differences of `git show`'s
 reading, GitHub's refusals and its zero counts for binary files.
 
-Documented, and open for step 5.1: [A1](#a1-coloured-diffs),
-coloured diffs.
+Fixed in step 5.1: [A1](#a1-coloured-diffs), coloured diffs.
 
 In the backlog:
 

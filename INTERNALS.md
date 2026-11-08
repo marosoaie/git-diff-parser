@@ -91,12 +91,14 @@ and on the new side a deletion, in any zone, but only when the zone is
 written out (GNU diff writes it; Apple's diff doesn't, and git doesn't read
 those either).
 
-Coloured output (`--color`, `color.ui=always`) isn't read. An SGR escape
-code starts every header line, so none passes the byte-level gate, no file
-begins, and every line is unrecognized: the full model keeps them all in
-`Diff.preamble`, and nothing is reported as damage, since nothing was cut
-short. Whether to strip the codes or report such input is undecided; the
-entry points' documentation says to pass `--no-color`.
+Coloured output (`--color`, `color.ui=always`) loses its SGR escape
+codes before dispatch. A line is stripped if its first byte is `ESC`, so
+a plain diff pays one compare per line, or if it follows a stripped
+`diff ` line before the next plain one, since git ends even context
+lines with a reset. A CRLF line's `\r`, which git writes before
+that reset, is moved back to the line ending. In a plain diff only
+commit text or damage can start a line with `ESC`, so the codes a file's
+content holds are kept; a coloured line's own codes go with git's.
 
 Changed lines are stored as sorted, merged ranges (`LineRangeSet`) rather
 than per-line sets, so memory scales with the number of *edits*, not lines:

@@ -51,11 +51,8 @@ git diff origin/main...HEAD > changes.diff
 
 GitHub serves a pull request's diff at
 `https://github.com/OWNER/REPO/pull/NUMBER.diff`. Any unified diff
-works: `git show`, `git log -p`, `git format-patch` mail, and plain
-`diff -u` or `diff -ruN` output too. Only colour gets in the way: with
-`color.ui=always` or `--color`, an escape code starts every header line,
-and the diff reads as no files and no damage, so pass `--no-color` where
-colour may be configured.
+works, coloured or not: `git show`, `git log -p`, `git format-patch`
+mail, and plain `diff -u` or `diff -ruN` output too.
 
 ### Find the changed lines
 

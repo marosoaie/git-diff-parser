@@ -24,10 +24,12 @@
 /// and `endFile`, but its hunks produce no events. For the lines a merge
 /// changed, diff it against its first parent (`--diff-merges=first-parent`).
 ///
-/// Coloured output (`--color`, or `color.ui=always`) isn't read: an escape
-/// code starts every header line, so no file ever begins, and the whole
-/// diff arrives as unrecognized lines, with no damage reported. Where
-/// colour may be configured, generate the diff with `--no-color`.
+/// Coloured output (`--color`, or `color.ui=always`) parses as plain
+/// output does. Git's colour codes (SGR escape sequences) are removed from
+/// lines that start with one and from every line of a file whose `diff `
+/// line does, along with any codes the content holds, so a coloured diff
+/// renders back plain. Commit text before the first file keeps codes that
+/// don't start its lines, such as a `--stat` graph's.
 ///
 /// Damaged input never traps or throws: the parser recovers locally or
 /// abandons the damaged file, and reports either through `damage(_:)`.
@@ -49,6 +51,8 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
     /// Where a `GIT binary patch` block is, while one is open.
     var binaryPatch: BinaryPatchPosition?
     var hunk = HunkState()
+    /// Whether the open file's `diff ` line was coloured.
+    var isInColouredFile = false
 
     /// Creates a parser that sends its events to `consumer`.
     public init(consumer: Consumer, options: ParsingOptions = .init()) {
@@ -99,6 +103,7 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
 
     mutating func processLine(_ line: RawLine) {
         lineNumber += 1
+        let line = removingColour(from: line)
         if hunk.isOpen {
             if hunk.isCombined {
                 processCombinedHunkLine(line)
