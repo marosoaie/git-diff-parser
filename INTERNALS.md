@@ -94,13 +94,14 @@ those either).
 Coloured output (`--color`, `color.ui=always`) loses its SGR escape
 codes before dispatch. A line is stripped if its first byte is `ESC`, so
 a plain diff pays one compare per line, or if it's in a file whose first
-line had codes, since git ends even context lines with a reset. A
-`diff ` line that ends with that reset is stripped when its file starts,
-since with `color.diff.meta=normal` the reset is its only code. A CRLF
-line's `\r`, which git writes before that reset, is moved back to the
-line ending. In a plain diff only
-commit text or damage can start a line with `ESC`, so the codes a file's
-content holds are kept; a coloured line's own codes go with git's.
+line, or either line of a plain diff's `---`/`+++` pair, had codes,
+since git ends even context lines with a reset. A `diff ` line that ends
+with that reset is stripped when its file starts, since with
+`color.diff.meta=normal` the reset is its only code. A CRLF line's `\r`,
+which git writes before that reset, is moved back to the line ending. In
+a plain diff only commit text or damage can start a line with `ESC`, so
+the codes a file's content holds are kept; a coloured line's own codes go
+with git's.
 
 Changed lines are stored as sorted, merged ranges (`LineRangeSet`) rather
 than per-line sets, so memory scales with the number of *edits*, not lines:

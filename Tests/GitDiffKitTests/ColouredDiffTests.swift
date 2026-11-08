@@ -57,9 +57,16 @@ struct ColouredDiffTests {
         """,
     ]
 
-    @Test("a coloured diff parses as the plain one, for any chunking", arguments: [1, 7, Int.max])
-    func colouredParsesAsPlain(chunkSize: Int) {
-        #expect(Diff.of(Array(Self.coloured.utf8), chunkSize: chunkSize) == Diff.of(Array(Self.plain.utf8)))
+    @Test(
+        "a coloured diff parses as the plain one, from its `diff ` line or its `---` line, for any chunking",
+        arguments: [1, 7, Int.max], [0, 2]
+    )
+    func colouredParsesAsPlain(chunkSize: Int, droppedLines: Int) {
+        func bytes(_ diff: String) -> [UInt8] {
+            let lines = diff.split(separator: "\n", omittingEmptySubsequences: false)
+            return Array(lines.dropFirst(droppedLines).joined(separator: "\n").utf8)
+        }
+        #expect(Diff.of(bytes(Self.coloured), chunkSize: chunkSize) == Diff.of(bytes(Self.plain)))
     }
 
     @Test(

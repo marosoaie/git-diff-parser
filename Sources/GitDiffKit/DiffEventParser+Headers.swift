@@ -19,7 +19,9 @@ extension DiffEventParser {
     /// `---`/`+++` pair.
     mutating func startPlainFile(oldSide: RawLine, newSide: RawLine) {
         endFile()
-        isInColouredFile = lastLineWithColourCodes == lineNumber - 1
+        // Either side's line may hold the codes; the `+++` line, already
+        // stripped, is this one.
+        isInColouredFile = lastLineWithColourCodes >= lineNumber - 1
         rawHeader.removeAll(keepingCapacity: true)
         header = HeaderBlock(parser: FileHeaderParser())
         // The old side was read a line ago, so its damage belongs there.
