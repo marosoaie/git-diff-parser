@@ -103,7 +103,15 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
 
     mutating func processLine(_ line: RawLine) {
         lineNumber += 1
-        let line = removingColour(from: line)
+        // Inline, so a plain line pays a compare and no copy.
+        if line.bytes.first == DiffSyntax.escape || isInColouredFile {
+            dispatch(removingColour(from: line))
+        } else {
+            dispatch(line)
+        }
+    }
+
+    private mutating func dispatch(_ line: RawLine) {
         if hunk.isOpen {
             if hunk.isCombined {
                 processCombinedHunkLine(line)

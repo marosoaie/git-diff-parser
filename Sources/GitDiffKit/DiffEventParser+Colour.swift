@@ -1,11 +1,10 @@
 extension DiffEventParser {
     /// `line` without git's colour codes, so a coloured diff parses as a
-    /// plain one. A line that starts with an escape is coloured, and so is
-    /// every line of a file whose `diff ` line was, since git ends even
-    /// context lines with a reset. A plain diff pays a compare per line.
+    /// plain one. For a line that starts with an escape, or any line of a
+    /// file whose `diff ` line did, since git ends even context lines with
+    /// a reset.
     mutating func removingColour(from line: RawLine) -> RawLine {
         let startsWithEscape = line.bytes.first == DiffSyntax.escape
-        guard startsWithEscape || isInColouredFile else { return line }
         var plain = line
         plain.bytes = Self.removingColourCodes(from: line.bytes)
         // Git writes a CRLF line's `\r` before its closing reset.
