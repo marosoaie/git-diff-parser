@@ -212,6 +212,8 @@ Xcode/`xcodebuild test`, whose build-product layouts differ.
 Every target builds with Swift 6.2 strict concurrency plus
 `ExistentialAny`, `MemberImportVisibility`, `InferIsolatedConformances`,
 `NonisolatedNonsendingByDefault`, and `strictMemorySafety()`; the build is
-kept warning-free. Model types are `Sendable`. The library never throws on
+kept warning-free. Swift 6.2.3 brought `@nonexhaustive`, so it sits in
+`#if hasAttribute(nonexhaustive)`, and earlier 6.2 compilers build the
+enum without it. Model types are `Sendable`. The library never throws on
 malformed input — damage stays contained to the malformed file (truncated
 hunks recover at the next file header).

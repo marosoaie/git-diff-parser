@@ -9,7 +9,9 @@ public struct DamageReport: Sendable, Equatable {
     ///
     /// Minor releases may add reasons, so a `switch` over one needs an
     /// `@unknown default`; ``DamageReport/severity`` classifies them all.
+    #if hasAttribute(nonexhaustive)
     @nonexhaustive
+    #endif
     public enum Reason: Sendable, Equatable {
         /// A hunk ended before its declared counts were used up: a line
         /// that doesn't fit the remaining budgets, a `diff ` line, or the

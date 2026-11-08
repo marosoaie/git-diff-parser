@@ -15,8 +15,9 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
   `ChangedLines(diff:)` stays.
 - **`ChangedLines.lines(in:)` is removed.** Use `ranges(in:)`, or
   `files[path]?.allLines` for the expanded list.
-- **`DamageReport.Reason` is `@nonexhaustive`**, so a `switch` over it
-  needs an `@unknown default`, and minor releases can add reasons.
+- **`DamageReport.Reason` is `@nonexhaustive`** (from Swift 6.2.3, which
+  brought the attribute), so a `switch` over it needs an
+  `@unknown default`, and minor releases can add reasons.
 
 ### Fixed
 
