@@ -4,10 +4,15 @@ import Testing
 
 /// Coloured renderings of the fixture against the plain ones.
 extension GitApplyOracleTests {
-    @Test("a coloured diff parses as the same full model as the plain one, for any chunking", arguments: variants)
-    func coloured(variant: Variant) throws {
+    // With metadata in `normal`, a `diff ` line's only code is its reset.
+    @Test(
+        "a coloured diff parses as the same full model as the plain one, for any chunking and metadata colour",
+        arguments: variants, ["bold", "normal"]
+    )
+    func coloured(variant: Variant, metadataColour: String) throws {
         let plain = try Self.withDiff(variant) { diff, _ in Diff.of(try Array(Data(contentsOf: diff))) }
         var coloured = variant
+        coloured.gitOptions += ["-c", "color.diff.meta=\(metadataColour)"]
         coloured.diffOptions += ["--color=always", "--color-moved", "--ws-error-highlight=all"]
         try Self.withDiff(coloured) { diff, _ in
             let bytes = try Array(Data(contentsOf: diff))

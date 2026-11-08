@@ -35,8 +35,10 @@ struct ColouredDiffTests {
 
         """
 
-    /// A plain file whose content holds colour codes.
-    static let plainWithCodes = """
+    /// A plain file whose content holds colour codes, from git or from
+    /// `diff -u`.
+    static let plainWithCodes = [
+        """
         diff --git a/log.txt b/log.txt
         --- a/log.txt
         +++ b/log.txt
@@ -44,18 +46,30 @@ struct ColouredDiffTests {
          \u{1B}[1mbold\u{1B}[m
         +\u{1B}[31mred\u{1B}[m
 
+        """,
         """
+        --- a/log.txt
+        +++ b/log.txt
+        @@ -1 +1,2 @@
+         \u{1B}[1mbold\u{1B}[m
+        +\u{1B}[31mred\u{1B}[m
+
+        """,
+    ]
 
     @Test("a coloured diff parses as the plain one, for any chunking", arguments: [1, 7, Int.max])
     func colouredParsesAsPlain(chunkSize: Int) {
         #expect(Diff.of(Array(Self.coloured.utf8), chunkSize: chunkSize) == Diff.of(Array(Self.plain.utf8)))
     }
 
-    @Test("a plain file keeps the colour codes its content holds, even after a coloured file")
-    func plainKeepsCodes() {
-        let alone = Array(Self.plainWithCodes.utf8)
+    @Test(
+        "a plain file keeps the colour codes its content holds, even after a coloured file",
+        arguments: plainWithCodes
+    )
+    func plainKeepsCodes(plainWithCodes: String) {
+        let alone = Array(plainWithCodes.utf8)
         #expect([UInt8](rendering: Diff.of(alone)) == alone)
-        let afterColoured = Diff.of(Array((Self.coloured + Self.plainWithCodes).utf8))
+        let afterColoured = Diff.of(Array((Self.coloured + plainWithCodes).utf8))
         #expect(afterColoured.files.last == Diff.of(alone).files.first)
     }
 

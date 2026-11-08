@@ -27,7 +27,8 @@
 /// Coloured output (`--color`, or `color.ui=always`) parses as plain
 /// output does. Git's colour codes (SGR escape sequences) are removed from
 /// lines that start with one and from every line of a file whose `diff `
-/// line does, along with any codes the content holds, so a coloured diff
+/// line starts or ends with one, or whose plain diff's `---` line starts
+/// with one, along with any codes the content holds, so a coloured diff
 /// renders back plain. Commit text before the first file keeps codes that
 /// don't start its lines, such as a `--stat` graph's.
 ///
@@ -51,8 +52,11 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
     /// Where a `GIT binary patch` block is, while one is open.
     var binaryPatch: BinaryPatchPosition?
     var hunk = HunkState()
-    /// Whether the open file's `diff ` line was coloured.
+    /// Whether the open file's first line held colour codes.
     var isInColouredFile = false
+    /// The number of the last line colour codes were removed from. Not a
+    /// flag on each line: a wider `RawLine` slows every plain line.
+    var lastLineWithColourCodes = 0
 
     /// Creates a parser that sends its events to `consumer`.
     public init(consumer: Consumer, options: ParsingOptions = .init()) {

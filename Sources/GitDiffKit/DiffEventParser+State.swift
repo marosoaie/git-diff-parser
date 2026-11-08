@@ -16,6 +16,8 @@ enum DiffSyntax {
     static let noNewlinePrefix = Array("\\ ".utf8)
     /// Starts git's colour codes.
     static let escape: UInt8 = 0x1B
+    /// Ends every line git colours.
+    static let colourReset = Array("\u{1B}[m".utf8)
 
     /// A header block past either bound abandons its file. Fixed rather
     /// than tied to the line cap, which a caller may raise to 64 MiB.
