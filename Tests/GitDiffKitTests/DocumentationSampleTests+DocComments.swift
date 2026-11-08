@@ -4,18 +4,6 @@ import Testing
 
 /// The samples in the library's doc comments.
 extension DocumentationSampleTests {
-    @Test("DiffParser: streaming changed lines")
-    func diffParserSample() {
-        var chunks = Self.chunks(of: diffText, size: 3)
-        func readSomeBytes() -> [UInt8]? { chunks.isEmpty ? nil : chunks.removeFirst() }
-
-        var parser = DiffParser()
-        while let chunk = readSomeBytes() { parser.consume(chunk) }
-        let changes = parser.finalize()
-
-        #expect(changes == ChangedLines(diff: diffText))
-    }
-
     @Test("ChangedLines.Collector: driving it with the event parser")
     func changedLinesCollectorSample() {
         let diffBytes = Array(diffText.utf8)

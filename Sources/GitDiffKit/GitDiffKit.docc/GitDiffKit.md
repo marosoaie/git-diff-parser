@@ -54,7 +54,6 @@ Start with <doc:GettingStarted>, then pick a collector with
 
 - ``ChangedLines``
 - ``LineRangeSet``
-- ``DiffParser``
 
 ### File Summaries
 

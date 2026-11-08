@@ -201,7 +201,7 @@ struct FileHeaderParser: Sendable {
     // MARK: Prefixes and paths
 
     /// Letters git uses as diff prefixes: a/b by default (swapped by -R),
-    /// c/i/o/w under diff.mnemonicPrefix. Same set as `DiffParser`'s.
+    /// c/i/o/w under diff.mnemonicPrefix.
     private static let prefixLetters = Array("abciow".utf8)
 
     private static func prefixLetter(of path: [UInt8]) -> UInt8? {
@@ -209,11 +209,11 @@ struct FileHeaderParser: Sendable {
         return path[0]
     }
 
-    /// Strips git's `a/`-style prefixes from a pair of names the way
-    /// `DiffParser` treats `+++`: a side with a prefix letter loses it
-    /// unless the other side contradicts it. Real git prefix pairs use two
-    /// different letters, so the same letter on both sides, or a letter
-    /// against a bare path, is a genuine directory and is kept.
+    /// Strips git's `a/`-style prefixes from a pair of names: a side with
+    /// a prefix letter loses it unless the other side contradicts it. Real
+    /// git prefix pairs use two different letters, so the same letter on
+    /// both sides, or a letter against a bare path, is a genuine directory
+    /// and is kept.
     private static func strippingPrefixes(_ old: [UInt8]?, _ new: [UInt8]?) -> (old: [UInt8]?, new: [UInt8]?) {
         func stripped(_ path: [UInt8]?, pairedWith other: [UInt8]?) -> [UInt8]? {
             guard let path, let letter = prefixLetter(of: path) else { return path }

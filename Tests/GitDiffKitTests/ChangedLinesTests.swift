@@ -1,8 +1,8 @@
 import Testing
 @testable import GitDiffKit
 
-@Suite("DiffParser")
-struct DiffParserTests {
+@Suite("ChangedLines(diff:)")
+struct ChangedLinesTests {
     @Test("modified file records added line numbers on the new side")
     func modifiedFile() {
         let diff = #"""

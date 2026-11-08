@@ -28,8 +28,7 @@ Parsing is layered (see [docs/diff-model.md](docs/diff-model.md)):
   allocates nothing per line. The consumer is a generic parameter, so the
   calls specialize and inline.
 - Collectors are consumers that keep what they need, from least to most:
-  - `ChangedLines.Collector` records added lines per file; `DiffParser` is
-    a thin facade over it, kept for 0.1's API.
+  - `ChangedLines.Collector` records added lines per file.
   - `DiffSummary.Collector` keeps each file's `FileHeader` and its added
     and deleted line counts. Its memory grows with the file count, not the
     content.
