@@ -80,10 +80,18 @@ struct ColouredDiffTests {
         #expect(afterColoured.files.last == Diff.of(alone).files.first)
     }
 
+    @Test("removing a code leaves none behind, so the model renders back to itself")
+    func nestedCodes() {
+        let diff = Diff.of(Array("\u{1B}\u{1B}[m[mdiff --git a/x b/x\n".utf8))
+        #expect(Diff.of([UInt8](rendering: diff)) == diff)
+    }
+
     @Test(
-        "only SGR sequences are removed",
+        "only SGR sequences are removed, and so is one that removing another closes",
         arguments: [
             ("\u{1B}[1;31mred\u{1B}[m", "red"),
+            ("\u{1B}\u{1B}[m[mx", "x"),
+            ("\u{1B}[1\u{1B}[mmx", "x"),
             ("\u{1B}[38:2:255:0:0mx", "x"),
             ("\u{1B}[2Kx", "\u{1B}[2Kx"),
             ("\u{1B}]8;;url\u{1B}\\x", "\u{1B}]8;;url\u{1B}\\x"),

@@ -17,34 +17,33 @@ extension DiffEventParser {
     }
 
     /// `bytes` without their SGR sequences (`ESC [`, digits, `;` or `:`,
-    /// then `m`); any other escape stays. Linear in the bytes.
+    /// then `m`); any other escape stays. Each code goes as its `m` closes
+    /// it, so one that removing another closes goes too (`ESC ESC[m [m`),
+    /// and the result holds none: a model renders back to itself. Linear in
+    /// the bytes.
     static func removingColourCodes(from bytes: ArraySlice<UInt8>) -> ArraySlice<UInt8> {
         guard let firstEscape = bytes.firstIndex(of: DiffSyntax.escape) else { return bytes }
         var plain = Array(bytes[..<firstEscape])
         plain.reserveCapacity(bytes.count)
-        var index = firstEscape
-        // A cursor that jumps over whole sequences: a byte scan that
-        // combinators would obscure.
-        while index < bytes.endIndex {
-            if bytes[index] == DiffSyntax.escape, let end = colourCodeEnd(in: bytes, at: index) {
-                index = end
-            } else {
-                plain.append(bytes[index])
-                index += 1
+        bytes[firstEscape...].forEach { byte in
+            plain.append(byte)
+            if byte == UInt8(ascii: "m"), let start = colourCodeStart(endingAt: plain) {
+                plain.removeSubrange(start...)
             }
         }
         return plain[...]
     }
 
-    /// The index past the SGR sequence that starts at `start`, if one does.
-    /// Its scan stops at the next escape, so no byte is scanned twice.
-    private static func colourCodeEnd(in bytes: ArraySlice<UInt8>, at start: Int) -> Int? {
-        let rest = bytes[(start + 1)...]
-        guard rest.first == UInt8(ascii: "[") else { return nil }
-        let parameters = rest.dropFirst().prefix { (UInt8(ascii: "0")...UInt8(ascii: ";")).contains($0) }
-        guard parameters.endIndex < bytes.endIndex, bytes[parameters.endIndex] == UInt8(ascii: "m") else {
-            return nil
-        }
-        return parameters.endIndex + 1
+    /// Where the SGR sequence that `bytes` ends with starts, if it ends
+    /// with one. The scan back stops at the first byte that isn't a
+    /// parameter, and an `m` that stays is one, so no byte is scanned twice.
+    private static func colourCodeStart(endingAt bytes: [UInt8]) -> Int? {
+        let parameters = UInt8(ascii: "0")...UInt8(ascii: ";")
+        guard let bracket = bytes.dropLast().lastIndex(where: { !parameters.contains($0) }),
+              bracket > 0,
+              bytes[bracket] == UInt8(ascii: "["),
+              bytes[bracket - 1] == DiffSyntax.escape
+        else { return nil }
+        return bracket - 1
     }
 }
