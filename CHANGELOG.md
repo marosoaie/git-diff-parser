@@ -7,6 +7,25 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 
 ## Unreleased
 
+### Breaking changes
+
+- **`DiffParser` is removed.** Stream changed lines through
+  `DiffEventParser(consumer: ChangedLines.Collector())` and
+  `finalize().changedLines`, as `DiffSummary` and `Diff` stream.
+  `ChangedLines(diff:)` stays.
+- **`ChangedLines.lines(in:)` is removed.** Use `ranges(in:)`, or
+  `files[path]?.allLines` for the expanded list.
+- **`DamageReport.Reason` is `@nonexhaustive`** (from Swift 6.2.3, which
+  brought the attribute), so a `switch` over it needs an
+  `@unknown default`, and minor releases can add reasons.
+
+### Fixed
+
+- **Coloured diffs parse.** Output of `git diff --color`, or of git with
+  `color.ui=always`, read as no files and no damage. The parser now
+  removes git's colour codes, so it parses as the plain diff does, and
+  the full model renders it back plain.
+
 ## 0.2.1 — 2026-11-03
 
 A documentation release: the API and behaviour are 0.2.0's. It's

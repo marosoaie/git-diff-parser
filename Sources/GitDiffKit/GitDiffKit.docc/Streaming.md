@@ -39,10 +39,6 @@ parser.consume(diffText)
 let diff = parser.finalize().diff
 ```
 
-``DiffParser`` is the same for ``ChangedLines``, kept from GitDiffKit's
-first release; `DiffEventParser(consumer: ChangedLines.Collector())`
-does the same job.
-
 ### Read a file or standard input
 
 GitDiffKit doesn't import Foundation, but on Apple platforms and Linux

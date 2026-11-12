@@ -1,6 +1,6 @@
 extension ChangedLines {
     /// Collects the lines a diff adds, per file, from parser events: the
-    /// consumer behind ``DiffParser`` and ``ChangedLines/init(diff:)``.
+    /// consumer behind ``ChangedLines/init(diff:)``.
     ///
     /// ```swift
     /// var parser = DiffEventParser(consumer: ChangedLines.Collector())

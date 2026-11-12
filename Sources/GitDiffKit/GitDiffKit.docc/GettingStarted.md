@@ -51,11 +51,8 @@ git diff origin/main...HEAD > changes.diff
 
 GitHub serves a pull request's diff at
 `https://github.com/OWNER/REPO/pull/NUMBER.diff`. Any unified diff
-works: `git show`, `git log -p`, `git format-patch` mail, and plain
-`diff -u` or `diff -ruN` output too. Only colour gets in the way: with
-`color.ui=always` or `--color`, an escape code starts every header line,
-and the diff reads as no files and no damage, so pass `--no-color` where
-colour may be configured.
+works, coloured or not: `git show`, `git log -p`, `git format-patch`
+mail, and plain `diff -u` or `diff -ruN` output too.
 
 ### Find the changed lines
 
@@ -101,7 +98,6 @@ new-side line numbers it adds, as ranges:
 let changes = ChangedLines(diff: diffText)
 let paths = changes.sortedPaths   // ["README.md", "Sources/App/Greeting.swift"]
 let greeting = changes.ranges(in: "Sources/App/Greeting.swift")   // [2...3]
-let readme = changes.lines(in: "README.md")   // [13]
 
 let isChanged = changes.contains(line: 3, in: "Sources/App/Greeting.swift")   // true
 let isNextChanged = changes.contains(line: 4, in: "Sources/App/Greeting.swift")   // false
@@ -147,15 +143,16 @@ needs:
 ### Read large diffs in chunks
 
 ``ChangedLines/init(diff:)`` needs the whole diff in memory. For a large
-one, feed it to a ``DiffParser`` a chunk at a time and finalize it
-once; chunks can end anywhere, even inside a line:
+one, feed it to a ``DiffEventParser`` with a ``ChangedLines/Collector`` a
+chunk at a time and finalize it once; chunks can end anywhere, even
+inside a line:
 
 ```swift
-var parser = DiffParser()
+var parser = DiffEventParser(consumer: ChangedLines.Collector())
 while let chunk = readSomeBytes() {
     parser.consume(chunk)
 }
-let streamed = parser.finalize()   // the same ChangedLines, for any chunking
+let streamed = parser.finalize().changedLines   // the same, for any chunking
 ```
 
 <doc:Streaming> shows how to read a file, standard input, or an async

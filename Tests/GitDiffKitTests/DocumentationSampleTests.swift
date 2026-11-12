@@ -64,7 +64,7 @@ struct DocumentationSampleTests {
             "\(CodeSample.catalog)/ChoosingACollector.md",
             "\(CodeSample.catalog)/Streaming.md",
             "\(CodeSample.catalog)/DamagedInput.md",
-            "\(CodeSample.sources)/DiffParser.swift",
+            "\(CodeSample.sources)/ChangedLines+Collector.swift",
             "\(CodeSample.sources)/Diff+Rendering.swift",
         ]
         #expect(Set(expected).subtracting(files) == [])

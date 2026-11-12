@@ -24,10 +24,13 @@
 /// and `endFile`, but its hunks produce no events. For the lines a merge
 /// changed, diff it against its first parent (`--diff-merges=first-parent`).
 ///
-/// Coloured output (`--color`, or `color.ui=always`) isn't read: an escape
-/// code starts every header line, so no file ever begins, and the whole
-/// diff arrives as unrecognized lines, with no damage reported. Where
-/// colour may be configured, generate the diff with `--no-color`.
+/// Coloured output (`--color`, or `color.ui=always`) parses as plain
+/// output does. Git's colour codes (SGR escape sequences) are removed from
+/// lines that start with one and from every line of a file whose `diff `
+/// line starts or ends with one, or whose plain diff's `---` or `+++` line
+/// starts with one, along with any codes the content holds, so a
+/// coloured diff renders back plain. Commit text before the first file
+/// keeps codes that don't start its lines, such as a `--stat` graph's.
 ///
 /// Damaged input never traps or throws: the parser recovers locally or
 /// abandons the damaged file, and reports either through `damage(_:)`.
@@ -49,6 +52,15 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
     /// Where a `GIT binary patch` block is, while one is open.
     var binaryPatch: BinaryPatchPosition?
     var hunk = HunkState()
+    /// Whether the open file's first line, or either line of a plain
+    /// diff's `---`/`+++` pair, held colour codes.
+    var isInColouredFile = false
+    /// The number of the last line colour codes were removed from. Not a
+    /// flag on each line: a wider `RawLine` slows every plain line.
+    var lastLineWithColourCodes = 0
+    /// Whether the input ended with colour codes alone after its last
+    /// newline, which are dropped, so it ends at that newline.
+    var endsWithColourCodesAlone = false
 
     /// Creates a parser that sends its events to `consumer`.
     public init(consumer: Consumer, options: ParsingOptions = .init()) {
@@ -89,7 +101,7 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
         }
         endFile()
         lineNumber -= 1
-        if endsMidLine {
+        if endsMidLine, !endsWithColourCodesAlone {
             consumer.noNewlineAtEndOfInput()
         }
         return consumer
@@ -99,6 +111,15 @@ public struct DiffEventParser<Consumer: DiffEventConsumer>: ByteLineConsumer {
 
     mutating func processLine(_ line: RawLine) {
         lineNumber += 1
+        // Inline, so a plain line pays a compare and no copy.
+        if line.bytes.first == DiffSyntax.escape || isInColouredFile {
+            dispatchWithoutColour(line)
+        } else {
+            dispatch(line)
+        }
+    }
+
+    mutating func dispatch(_ line: RawLine) {
         if hunk.isOpen {
             if hunk.isCombined {
                 processCombinedHunkLine(line)

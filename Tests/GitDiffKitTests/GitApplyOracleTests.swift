@@ -218,14 +218,14 @@ struct GitApplyOracleTests {
 
     /// Builds the fixture repository, renders `variant` to a diff file, and
     /// hands both to `body`, removing them afterwards.
-    private static func withDiff<Result>(_ variant: Variant, _ body: (URL, URL) throws -> Result) throws -> Result {
+    static func withDiff<Result>(_ variant: Variant, _ body: (URL, URL) throws -> Result) throws -> Result {
         try withOutput(of: variant.gitOptions + ["diff"] + variant.diffOptions + ["main~1", "main"], body)
     }
 
     /// Builds the fixture repository, writes what `git` prints there for
     /// `arguments` to a file, and hands both to `body`, removing them
     /// afterwards.
-    private static func withOutput<Result>(
+    static func withOutput<Result>(
         of arguments: [String], _ body: (URL, URL) throws -> Result
     ) throws -> Result {
         let directory = FileManager.default.temporaryDirectory

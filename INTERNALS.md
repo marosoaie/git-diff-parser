@@ -28,8 +28,7 @@ Parsing is layered (see [docs/diff-model.md](docs/diff-model.md)):
   allocates nothing per line. The consumer is a generic parameter, so the
   calls specialize and inline.
 - Collectors are consumers that keep what they need, from least to most:
-  - `ChangedLines.Collector` records added lines per file; `DiffParser` is
-    a thin facade over it, kept for 0.1's API.
+  - `ChangedLines.Collector` records added lines per file.
   - `DiffSummary.Collector` keeps each file's `FileHeader` and its added
     and deleted line counts. Its memory grows with the file count, not the
     content.
@@ -92,12 +91,19 @@ and on the new side a deletion, in any zone, but only when the zone is
 written out (GNU diff writes it; Apple's diff doesn't, and git doesn't read
 those either).
 
-Coloured output (`--color`, `color.ui=always`) isn't read. An SGR escape
-code starts every header line, so none passes the byte-level gate, no file
-begins, and every line is unrecognized: the full model keeps them all in
-`Diff.preamble`, and nothing is reported as damage, since nothing was cut
-short. Whether to strip the codes or report such input is undecided; the
-entry points' documentation says to pass `--no-color`.
+Coloured output (`--color`, `color.ui=always`) loses its SGR escape
+codes before dispatch. A line is stripped if its first byte is `ESC`, so
+a plain diff pays one compare per line, or if it's in a file whose first
+line, or either line of a plain diff's `---`/`+++` pair, had codes,
+since git ends even context lines with a reset. A `diff ` line that ends
+with that reset is stripped when its file starts, since with
+`color.diff.meta=normal` the reset is its only code. A CRLF line's `\r`,
+which git writes before that reset, is moved back to the line ending.
+Codes alone after the last newline are dropped, so the input ends at that
+newline: as an empty unterminated line they'd render as nothing. In
+a plain diff only commit text or damage can start a line with `ESC`, so
+the codes a file's content holds are kept; a coloured line's own codes go
+with git's.
 
 Changed lines are stored as sorted, merged ranges (`LineRangeSet`) rather
 than per-line sets, so memory scales with the number of *edits*, not lines:
@@ -208,6 +214,8 @@ Xcode/`xcodebuild test`, whose build-product layouts differ.
 Every target builds with Swift 6.2 strict concurrency plus
 `ExistentialAny`, `MemberImportVisibility`, `InferIsolatedConformances`,
 `NonisolatedNonsendingByDefault`, and `strictMemorySafety()`; the build is
-kept warning-free. Model types are `Sendable`. The library never throws on
+kept warning-free. Swift 6.2.3 brought `@nonexhaustive`, so it sits in
+`#if hasAttribute(nonexhaustive)`, and earlier 6.2 compilers build the
+enum without it. Model types are `Sendable`. The library never throws on
 malformed input — damage stays contained to the malformed file (truncated
 hunks recover at the next file header).

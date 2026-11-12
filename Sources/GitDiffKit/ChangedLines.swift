@@ -168,9 +168,6 @@ public struct LineRangeSet: Sendable, Equatable {
 /// Combined diffs of merges (`diff --cc`) are skipped and contribute no
 /// lines; for the lines a merge changed, diff it against its first parent
 /// (`--diff-merges=first-parent`) or use a three-dot diff.
-///
-/// A coloured diff (`--color`, `color.ui=always`) reads as no files. Pass
-/// `--no-color` to git.
 public struct ChangedLines: Sendable, Equatable {
     /// Each file's added lines, keyed by its new path; a file with no
     /// added lines has no entry.
@@ -195,6 +192,15 @@ public struct ChangedLines: Sendable, Equatable {
             .mapValues { lines in LineRangeSet(lines.sorted().map { $0...$0 }) }
     }
 
+    /// Parses a complete unified diff held in memory. For large inputs,
+    /// prefer streaming chunks through a ``DiffEventParser`` with a
+    /// ``Collector``.
+    public init(diff: String) {
+        var parser = DiffEventParser(consumer: Collector())
+        parser.consume(diff)
+        self = parser.finalize().changedLines
+    }
+
     /// Whether no file has added lines.
     public var isEmpty: Bool { files.isEmpty }
 
@@ -205,12 +211,6 @@ public struct ChangedLines: Sendable, Equatable {
     /// for a file the diff adds no lines to.
     public func ranges(in path: String) -> [ClosedRange<Int>] {
         files[path]?.ranges ?? []
-    }
-
-    /// Expanded line list for one file — convenient for PR-sized diffs,
-    /// wasteful for huge ones (prefer `ranges(in:)`).
-    public func lines(in path: String) -> [Int] {
-        files[path]?.allLines ?? []
     }
 
     /// Whether the diff adds `line` to the file at `path`, or with a

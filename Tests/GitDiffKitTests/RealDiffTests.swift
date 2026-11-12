@@ -38,14 +38,14 @@ struct RealDiffTests {
 
         let bytes = Array(fixture.utf8)
         for chunkSize in [1, 379, 4096] {
-            var parser = DiffParser()
+            var parser = DiffEventParser(consumer: ChangedLines.Collector())
             var index = 0
             while index < bytes.count {
                 let end = min(index + chunkSize, bytes.count)
                 parser.consume(bytes[index..<end])
                 index = end
             }
-            #expect(parser.finalize() == wholeString, "chunk size \(chunkSize)")
+            #expect(parser.finalize().changedLines == wholeString, "chunk size \(chunkSize)")
         }
     }
 }

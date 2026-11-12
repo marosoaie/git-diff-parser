@@ -2,6 +2,14 @@ extension DiffEventParser {
     /// Ends the current file and opens a header block at its `diff ` line.
     mutating func startFile(diffLine line: RawLine) {
         endFile()
+        var line = line
+        // With `color.diff.meta=normal`, a coloured `diff ` line's only
+        // code is its closing reset, so it can arrive unstripped. Not a
+        // scan for any code: that costs a plain diff about 4%.
+        if !isInColouredFile, line.bytes.suffix(3).elementsEqual(DiffSyntax.colourReset) {
+            line = removingColour(from: line)
+        }
+        isInColouredFile = lastLineWithColourCodes == lineNumber
         rawHeader.removeAll(keepingCapacity: true)
         header = HeaderBlock(parser: FileHeaderParser(diffLine: line.bytes))
         appendToHeader(line)
@@ -11,6 +19,9 @@ extension DiffEventParser {
     /// `---`/`+++` pair.
     mutating func startPlainFile(oldSide: RawLine, newSide: RawLine) {
         endFile()
+        // Either side's line may hold the codes; the `+++` line, already
+        // stripped, is this one.
+        isInColouredFile = lastLineWithColourCodes >= lineNumber - 1
         rawHeader.removeAll(keepingCapacity: true)
         header = HeaderBlock(parser: FileHeaderParser())
         // The old side was read a line ago, so its damage belongs there.

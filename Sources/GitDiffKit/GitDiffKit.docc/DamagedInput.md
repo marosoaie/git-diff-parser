@@ -51,9 +51,9 @@ the damage was found (one past the last line for damage found at the
 end of input), and ``DamageReport/file`` is the file's header as far as
 it was read.
 
-``ChangedLines`` and ``DiffParser`` don't keep reports. To see them
-alongside changed lines, parse with a ``DiffSummary`` too, or write a
-consumer whose ``DiffEventConsumer/damage(_:)`` keeps them (see
+``ChangedLines`` doesn't keep reports. To see them alongside changed
+lines, parse with a ``DiffSummary`` too, or write a consumer whose
+``DiffEventConsumer/damage(_:)`` keeps them (see
 <doc:Streaming#Write-your-own-consumer>).
 
 ### Severity
@@ -75,7 +75,8 @@ over the bounds below, and
 ``DamageReport/Reason-swift.enum/tooManyParents``, for a combined diff
 of a merge with more than 64 parents. For a combined diff, an abandoned
 file drops everything up to the next `diff ` line, since its hunks
-can't be counted.
+can't be counted. Minor releases may add reasons, so a `switch` over
+them needs an `@unknown default`.
 
 ### Bounds
 
