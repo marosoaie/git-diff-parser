@@ -1,0 +1,13 @@
+# The workflows pin each action to a commit SHA, with its version in a
+# comment. Dependabot moves the pins and the comments together, in one pull
+# request a month.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns:
+          - "*"

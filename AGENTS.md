@@ -159,3 +159,7 @@ iteration), never narration of the next line.
 - Releases are semver git tags — no binaries. The maintainer drives version
   numbers and tags releases; never tag unprompted. 0.x releases may break
   API; from 1.0 on, semver applies strictly.
+- The workflows pin every action, steward-action included, by full commit
+  SHA with its version in a comment (`@<sha> # v0.1.0`), so a moved tag
+  can't change what CI runs. Dependabot proposes new pins monthly, in one
+  pull request.
