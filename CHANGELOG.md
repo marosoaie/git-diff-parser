@@ -5,7 +5,10 @@ Every notable change to GitDiffKit. The format follows
 follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 1.0, a minor version may break the API.
 
-## Unreleased
+## 0.3.0 — 2026-11-13
+
+The API review before 1.0: two older entry points go, coloured diffs
+parse, and damage reasons can grow in minor releases.
 
 ### Breaking changes
 
@@ -18,6 +21,11 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 - **`DamageReport.Reason` is `@nonexhaustive`** (from Swift 6.2.3, which
   brought the attribute), so a `switch` over it needs an
   `@unknown default`, and minor releases can add reasons.
+
+### Changed
+
+- **Install lines pin 0.3.** The README and the Getting Started article
+  depend on `.upToNextMinor(from: "0.3.0")`.
 
 ### Fixed
 
