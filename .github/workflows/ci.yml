@@ -67,7 +67,7 @@ jobs:
       # refuses push events.
       - name: Steward
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        uses: marosoaie/steward-action@v0.1.0
+        uses: marosoaie/steward-action@v0.1.1
 
       - name: Test the Dangerfile's rules
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
