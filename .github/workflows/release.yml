@@ -94,10 +94,6 @@ jobs:
       - name: Check the version
         run: git ls-remote --tags --refs origin | sed 's|.*refs/tags/||' | .github/scripts/check-release-version.sh "$VERSION"
 
-      # If a pull request that changes a workflow merged while the tests
-      # ran, the tested commit's workflows differ from main's, and GitHub
-      # won't let this token tag it (a 404 or a 403): nothing is tagged,
-      # and the release is dispatched again from main.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -112,7 +108,8 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "v$VERSION" \
-            "${notes[@]}"
+            "${notes[@]}" \
+            || { echo "::error::Publishing failed. A 404 or a 403 most likely means that a pull request changing a workflow merged while the tests ran, and GitHub won't let this token tag a commit whose workflows differ from main's: nothing was tagged, so dispatch again from main."; exit 1; }
 
       # A tag pushed by hand between the check and the publish would be
       # released where it points, not at --target. This can't prevent
