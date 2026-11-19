@@ -94,6 +94,10 @@ jobs:
       - name: Check the version
         run: git ls-remote --tags --refs origin | sed 's|.*refs/tags/||' | .github/scripts/check-release-version.sh "$VERSION"
 
+      # If a pull request that changes a workflow merged while the tests
+      # ran, the tested commit's workflows differ from main's, and GitHub
+      # won't let this token tag it (a 404 or a 403): nothing is tagged,
+      # and the release is dispatched again from main.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
