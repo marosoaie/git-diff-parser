@@ -10,10 +10,10 @@ let package = Package(
     name: "Dangerfile",
     platforms: [.macOS(.v26)],
     dependencies: [
-        // Steward 0.2.x, at the release Package.resolved pins: `swift package
+        // Steward 0.3.x, at the release Package.resolved pins: `swift package
         // update --package-path Dangerfile` takes its fixes. Under 0.x a
         // minor release may break, so moving to the next one is an edit here.
-        .package(url: "https://github.com/marosoaie/swift-steward.git", .upToNextMinor(from: "0.2.0")),
+        .package(url: "https://github.com/marosoaie/swift-steward.git", .upToNextMinor(from: "0.3.0")),
     ],
     targets: [
         .executableTarget(
