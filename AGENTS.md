@@ -156,6 +156,21 @@ iteration), never narration of the next line.
 - Material from another project (a fixture, say) is committed with its
   licence next to it and an entry in
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-- Releases are semver git tags — no binaries. The maintainer drives version
-  numbers and tags releases; never tag unprompted. 0.x releases may break
-  API; from 1.0 on, semver applies strictly.
+- Releases are semver git tags — no binaries. 0.x releases may break API;
+  from 1.0 on, semver applies strictly. The maintainer drives version
+  numbers and releases; never tag or release unprompted.
+- A release is made by the Release workflow
+  (`.github/workflows/release.yml`), run by hand from `main` with the
+  version, `MAJOR.MINOR.PATCH` without the `v`, and optional notes, which
+  GitHub generates when none are given:
+  `gh workflow run release.yml --ref main -f version=0.4.0 -F notes=@notes.md`.
+  It refuses a version that's already tagged, or isn't greater than every
+  version tagged so far, with or without the `v`
+  (`.github/scripts/check-release-version.sh`); runs the tests, with a
+  read-only token; and then, in a job of its own that builds nothing and
+  alone can write (`contents: write`), tags the commit `vX.Y.Z`, publishes
+  the release, and checks that the tag is the tested commit. Tags are
+  `vX.Y.Z` from the next release on; the tags up to `0.3.0` have no `v`
+  and stay as they are, since SwiftPM reads both forms. A published
+  release's tag can't be moved, nor deleted while the release exists, and
+  its name can't be used again; its title and notes can still be edited.
