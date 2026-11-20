@@ -174,7 +174,7 @@ iteration), never narration of the next line.
   read-only token; and then, in a job of its own that builds nothing and
   alone can write (`contents: write`), tags the commit `vX.Y.Z`, publishes
   the release, and checks that the tag is the tested commit. Tags are
-  `vX.Y.Z` from the next release on; the tags up to `0.3.0` have no `v`
+  `vX.Y.Z` from 0.4.0 on; the tags up to `0.3.0` have no `v`
   and stay as they are, since SwiftPM reads both forms. A release the
   workflow publishes is immutable: its tag can't be moved, nor deleted
   while the release exists, and its name can't be used again; its title
