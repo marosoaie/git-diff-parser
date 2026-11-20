@@ -13,7 +13,11 @@ struct ChecksTests {
             "swiftlint.log": "",
         ])
         defer { workspace.remove() }
-        let context = try Context.fixture(diff: SampleDiff.sourceWithChangelog, workspace: workspace.path)
+        let context = try Context.fixture(
+            diff: SampleDiff.sourceWithChangelog,
+            files: SampleDiff.sourceFiles,
+            workspace: workspace.path
+        )
         let host = FakePullRequestHost(pullRequest: context.pullRequest)
         let outcome = await Checks.run(on: context, postingTo: host)
         #expect(outcome.exitStatus == 1)
@@ -25,7 +29,11 @@ struct ChecksTests {
     func passing() async throws {
         let workspace = try ReportWorkspace(logs: ["build.log": "Build complete!\n", "swiftlint.log": ""])
         defer { workspace.remove() }
-        let context = try Context.fixture(diff: SampleDiff.sourceWithChangelog, workspace: workspace.path)
+        let context = try Context.fixture(
+            diff: SampleDiff.sourceWithChangelog,
+            files: SampleDiff.sourceFiles,
+            workspace: workspace.path
+        )
         let host = FakePullRequestHost(pullRequest: context.pullRequest)
         let outcome = await Checks.run(on: context, postingTo: host)
         #expect(outcome.exitStatus == 0)

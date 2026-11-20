@@ -13,6 +13,32 @@ enum SampleDiff {
 
         """
 
+    /// The file `source` edits, as its head has it, for the rules that
+    /// read the files a pull request changes.
+    static let sourceFiles = ["Sources/GitDiffKit/Diff.swift": """
+        /// A diff.
+        let unused = 1
+        public struct Diff {}
+
+        """]
+
+    /// A pull request that adds a file at `path` holding `contents`, which
+    /// ends with a newline, with the files to give its fixture.
+    static func adding(_ path: String, _ contents: String) -> (diff: String, files: [String: String]) {
+        let lines = contents.split(separator: "\n", omittingEmptySubsequences: false).dropLast()
+        let diff = """
+            diff --git a/\(path) b/\(path)
+            new file mode 100644
+            index 0000000..1111111
+            --- /dev/null
+            +++ b/\(path)
+            @@ -0,0 +1,\(lines.count) @@
+            \(lines.map { "+\($0)" }.joined(separator: "\n"))
+
+            """
+        return (diff, [path: contents])
+    }
+
     /// The same edit, with its changelog entry.
     static let sourceWithChangelog = source + """
         diff --git a/CHANGELOG.md b/CHANGELOG.md

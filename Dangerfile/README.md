@@ -13,7 +13,11 @@ and its users never fetch Steward. It depends on swift-steward 0.3.x, at
 the release `Package.resolved` pins, as Steward's
 [quickstart](https://github.com/marosoaie/swift-steward/blob/main/docs/quickstart.md)
 sets a Dangerfile up; `swift package update --package-path Dangerfile`
-takes 0.3.x's fixes.
+takes 0.3.x's fixes. The rules about the library's Swift source come from
+[steward-lang-swift](https://github.com/marosoaie/steward-lang-swift)
+0.2.x, which parses with swift-syntax and builds against Steward 0.3, so
+moving to Steward's next minor release waits for a steward-lang-swift
+release that takes it.
 
 From the repository's root:
 
