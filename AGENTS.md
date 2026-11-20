@@ -20,7 +20,8 @@ on Linux; only the tests may use it, guarding Darwin-only APIs with
 
 The one exception to both rules, agreed by the maintainer on 2026-10-27, is
 `Dangerfile/`: this repository's own pull request checks, a separate
-package that depends on swift-steward and runs in CI through
+package that depends on swift-steward, steward-lang-swift and swift-syntax
+and runs in CI through
 [steward-action](https://github.com/marosoaie/steward-action). It never
 reaches the library's users: GitDiffKit's `Package.swift` doesn't name it,
 and SwiftPM reads only the manifests of the packages a graph declares, so

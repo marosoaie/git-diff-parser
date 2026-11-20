@@ -1,4 +1,4 @@
-import Steward
+import StewardSwift
 
 /// The rules Steward checks this repository's pull requests with, in the
 /// order they run and their findings show.
@@ -13,6 +13,8 @@ struct Checks: Dangerfile {
         noDependencies
         changelog
         thirdPartyNotices
+        valueTypes
+        documentedPublicAPI
     }
 
     /// The build's and SwiftLint's diagnostics on the lines the pull request
@@ -62,6 +64,55 @@ struct Checks: Dangerfile {
         return git.createdFiles.filter(isLicence).map { path in
             .warning("Add an entry to THIRD_PARTY_NOTICES.md for the material this covers.", at: Location(path: path))
         }
+    }
+
+    /// Value types only (AGENTS.md): each class or actor in the library's
+    /// sources is a warning at its declaration.
+    static let valueTypes = Rule.swiftSource("Value types", in: "Sources/**/*.swift") { file in
+        file.types
+            .filter { $0.kind == .class || $0.kind == .actor }
+            .map { .warning("\(Markdown.codeSpan($0.name)) isn't a value type (AGENTS.md).", at: $0.location) }
+    }
+
+    /// Every public symbol carries a doc comment (AGENTS.md): each public
+    /// type, function or member in the library's sources without one is a
+    /// warning at its declaration, in line order. A requirement of a public
+    /// protocol is public, and so is a member of a `public extension`; a
+    /// declaration inside a type that isn't public isn't, whatever it says.
+    ///
+    /// It checks the whole of each file the pull request changes, so that
+    /// making a type, a protocol or an extension public reports what that
+    /// exposes, at any depth. Top-level `let`, `var` and `typealias` aren't
+    /// in steward-lang-swift's model, so it doesn't see them.
+    static let documentedPublicAPI = Rule.swiftSource(
+        "Documented public API", in: "Sources/**/*.swift", reporting: .changedFiles
+    ) { file in
+        let typeAccess = Dictionary(file.types.map { ($0.syntax.id, $0.access.level) }) { first, _ in first }
+        // An extension's type may be declared in another file, so only types cap.
+        let enclosingAccess = { (node: Syntax) in
+            sequence(first: node, next: \.parent).compactMap { typeAccess[$0.id] }.min() ?? .open
+        }
+        let isUndocumented = { (access: AccessLevel, documentation: String?, node: Syntax) in
+            documentation == nil && min(access.level, enclosingAccess(node)) >= .public
+        }
+        let types = file.types
+            .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
+            .map { ($0.name, $0.location) }
+        let functions = file.functions
+            .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
+            .map { ($0.name, $0.location) }
+        // A member function or type is in `functions` or `types` already, and
+        // a `deinit` or a freestanding macro such as `#warning` isn't a symbol.
+        let members = file.memberBlocks
+            .flatMap { block in block.members.map { (member: $0, block: Syntax(block.syntax)) } }
+            .filter { ![.function, .type, .deinitializer, .macroExpansion].contains($0.member.kind) }
+            .filter { isUndocumented($0.member.access, $0.member.documentation, $0.block) }
+            .map { ($0.member.name, $0.member.location) }
+        return (types + functions + members)
+            .sorted { ($0.1.line ?? 0) < ($1.1.line ?? 0) }
+            .map { name, location in
+                .warning("Public \(Markdown.codeSpan(name)) has no doc comment (AGENTS.md).", at: location)
+            }
     }
 
     /// Whether the file at `path` is a licence or a notice, by the names

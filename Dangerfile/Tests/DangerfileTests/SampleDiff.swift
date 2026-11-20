@@ -1,6 +1,8 @@
 /// Pull requests' diffs as `git diff` writes them, for the rule tests.
 enum SampleDiff {
-    /// An edit to the library's sources, which adds its line 2.
+    /// An edit to the library's sources, which adds its line 2. `Diff`
+    /// isn't public: the added line takes its doc comment, which the
+    /// documented-public-API rule would report.
     static let source = """
         diff --git a/Sources/GitDiffKit/Diff.swift b/Sources/GitDiffKit/Diff.swift
         index 1111111..2222222 100644
@@ -9,9 +11,35 @@ enum SampleDiff {
         @@ -1,2 +1,3 @@
          /// A diff.
         +let unused = 1
-         public struct Diff {}
+         struct Diff {}
 
         """
+
+    /// The file `source` edits, as its head has it, for the rules that
+    /// read the files a pull request changes.
+    static let sourceFiles = ["Sources/GitDiffKit/Diff.swift": """
+        /// A diff.
+        let unused = 1
+        struct Diff {}
+
+        """]
+
+    /// A pull request that adds a file at `path` holding `contents`, which
+    /// ends with a newline, with the files to give its fixture.
+    static func adding(_ path: String, _ contents: String) -> (diff: String, files: [String: String]) {
+        let lines = contents.split(separator: "\n", omittingEmptySubsequences: false).dropLast()
+        let diff = """
+            diff --git a/\(path) b/\(path)
+            new file mode 100644
+            index 0000000..1111111
+            --- /dev/null
+            +++ b/\(path)
+            @@ -0,0 +1,\(lines.count) @@
+            \(lines.map { "+\($0)" }.joined(separator: "\n"))
+
+            """
+        return (diff, [path: contents])
+    }
 
     /// The same edit, with its changelog entry.
     static let sourceWithChangelog = source + """
