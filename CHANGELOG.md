@@ -5,7 +5,12 @@ Every notable change to GitDiffKit. The format follows
 follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 1.0, a minor version may break the API.
 
-## Unreleased
+## 0.4.0 — 2026-11-20
+
+A rename: in a name, "lines" now means lines of text, and the API that
+holds line numbers says so. It's the first release the release
+workflow makes, and the first tagged with a `v`, `v0.4.0`; the tags up
+to `0.3.0` keep theirs without one, and SwiftPM reads both.
 
 ### Breaking changes
 
@@ -24,6 +29,11 @@ follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
   Names that hold text, counts or a single number keep theirs:
   `DiffFile.lines`, `DiffHunk.lines`, `LineRangeSet`, `lineCount`,
   `contains(line:in:tolerance:)` and the like.
+
+### Changed
+
+- **Install lines pin 0.4.** The README and the Getting Started article
+  depend on `.upToNextMinor(from: "0.4.0")`.
 
 ## 0.3.0 — 2026-11-13
 
