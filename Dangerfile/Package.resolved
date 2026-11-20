@@ -1,13 +1,13 @@
 {
-  "originHash" : "a7d50045d05e6ba6475dc4fb35e6ae149df997b23048550a1118d74a8a46e04e",
+  "originHash" : "47d0f7e89c18a5c229d465715c9440246c731dcd9c8cf912e074ae72d59940a7",
   "pins" : [
     {
       "identity" : "git-diff-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/git-diff-parser.git",
       "state" : {
-        "revision" : "072c60afa33686cab922cfb8320d23961d406cdc",
-        "version" : "0.3.0"
+        "revision" : "82009b544fe15dd81e000864902ccf83b2c0a89d",
+        "version" : "0.4.0"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/steward-lang-swift.git",
       "state" : {
-        "revision" : "948a385e1cf5d7a607385328fc19a3ad51f26fd4",
-        "version" : "0.2.0"
+        "revision" : "14df4c4c7f90c8749433aa7c7b083ac1b98f6ebd",
+        "version" : "0.3.0"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/swift-steward.git",
       "state" : {
-        "revision" : "a5983b326688cfb69520a5dc89b8e214ef4c68bf",
-        "version" : "0.3.0"
+        "revision" : "0feda7440d0deff7ecc898669050d27c0ae62573",
+        "version" : "0.4.0"
       }
     },
     {
