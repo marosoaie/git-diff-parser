@@ -1,5 +1,11 @@
 # Validation record
 
+`ChangedLineNumbers` was named `ChangedLines` until
+[#28](https://github.com/marosoaie/git-diff-parser/pull/28) renamed it,
+after 0.3.0. This record uses the current name, so a search finds it;
+what it says a release before the rename did, that release did with
+`ChangedLines`.
+
 What was run to check GitDiffKit against git and GitHub on diffs beyond
 the committed fixtures, and on platforms beyond the two CI tested, as of
 2026-10-28 (plan step 5.0, Track A), and whether a newcomer can use it

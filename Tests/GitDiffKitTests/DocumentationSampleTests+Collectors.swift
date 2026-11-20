@@ -21,8 +21,8 @@ extension DocumentationSampleTests {
             Warning(path: "Sources/App/Legacy.swift", line: 1, message: "file deleted"),
         ]
         let changes = ChangedLineNumbers(diff: diffText)
-        let relevant = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
-        print(relevant.map(\.message))   // ["unused variable"]
+        let onChangedLines = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
+        print(onChangedLines.map(\.message))   // ["unused variable"]
 
         #expect(printedLines == [#"["unused variable"]"#])
     }

@@ -1,5 +1,11 @@
 # The layered diff model
 
+`ChangedLineNumbers` was named `ChangedLines` until
+[#28](https://github.com/marosoaie/git-diff-parser/pull/28) renamed it,
+after 0.3.0. This record uses the current name, so a search finds it;
+where it speaks of "today's" API or of 0.1 callers, they wrote
+`ChangedLines`.
+
 **Status: reviewed (plan step 2.2).** The maintainer answered the open
 questions on 2026-10-25; [Answered questions](#answered-questions) records
 the answers, and the recommendations below are updated to match. Steps 2.3

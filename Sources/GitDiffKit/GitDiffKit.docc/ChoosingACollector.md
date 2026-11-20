@@ -49,8 +49,8 @@ let warnings = [
     Warning(path: "Sources/App/Legacy.swift", line: 1, message: "file deleted"),
 ]
 let changes = ChangedLineNumbers(diff: diffText)
-let relevant = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
-print(relevant.map(\.message))   // ["unused variable"]
+let onChangedLines = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
+print(onChangedLines.map(\.message))   // ["unused variable"]
 ```
 
 Its rules — new-side numbers, additions only, `String` paths that
