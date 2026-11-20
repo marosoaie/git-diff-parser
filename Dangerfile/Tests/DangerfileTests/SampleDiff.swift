@@ -1,6 +1,8 @@
 /// Pull requests' diffs as `git diff` writes them, for the rule tests.
 enum SampleDiff {
-    /// An edit to the library's sources, which adds its line 2.
+    /// An edit to the library's sources, which adds its line 2. `Diff`
+    /// isn't public: the added line takes its doc comment, which the
+    /// documented-public-API rule would report.
     static let source = """
         diff --git a/Sources/GitDiffKit/Diff.swift b/Sources/GitDiffKit/Diff.swift
         index 1111111..2222222 100644
@@ -9,7 +11,7 @@ enum SampleDiff {
         @@ -1,2 +1,3 @@
          /// A diff.
         +let unused = 1
-         public struct Diff {}
+         struct Diff {}
 
         """
 
@@ -18,7 +20,7 @@ enum SampleDiff {
     static let sourceFiles = ["Sources/GitDiffKit/Diff.swift": """
         /// A diff.
         let unused = 1
-        public struct Diff {}
+        struct Diff {}
 
         """]
 

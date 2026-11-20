@@ -77,20 +77,32 @@ struct Checks: Dangerfile {
     /// Every public symbol carries a doc comment (AGENTS.md): each public
     /// type, function or member in the library's sources without one is a
     /// warning at its declaration, in line order. A requirement of a public
-    /// protocol is public, and so is a member of a `public extension`.
-    static let documentedPublicAPI = Rule.swiftSource("Documented public API", in: "Sources/**/*.swift") { file in
-        let isUndocumented = { (access: AccessLevel, documentation: String?) in
-            access.level >= .public && documentation == nil
+    /// protocol is public, and so is a member of a `public extension`; a
+    /// declaration inside a type that isn't public isn't, whatever it says.
+    ///
+    /// It reports from the types the pull request changes, not only the
+    /// declarations, so that making a protocol, type or extension public
+    /// reports what that exposes. Top-level `let`, `var` and `typealias`
+    /// aren't in steward-lang-swift's model, so it doesn't see them.
+    static let documentedPublicAPI = Rule.swiftSource(
+        "Documented public API", in: "Sources/**/*.swift", reporting: .changedTypes
+    ) { file in
+        let isUndocumented = { (access: AccessLevel, documentation: String?, lines: ClosedRange<Int>) in
+            documentation == nil && access.level >= .public && !file.types.contains { type in
+                type.access.level < .public && type.lines.lowerBound < lines.lowerBound
+                    && type.lines.contains(lines.lowerBound)
+            }
         }
         let types = file.types
-            .filter { isUndocumented($0.access, $0.documentation) }
+            .filter { isUndocumented($0.access, $0.documentation, $0.lines) }
             .map { ($0.name, $0.location) }
         let functions = file.functions
-            .filter { isUndocumented($0.access, $0.documentation) }
+            .filter { isUndocumented($0.access, $0.documentation, $0.lines) }
             .map { ($0.name, $0.location) }
         // A member function or type is in `functions` or `types` already.
         let members = file.memberBlocks.flatMap(\.members)
-            .filter { $0.kind != .function && $0.kind != .type && isUndocumented($0.access, $0.documentation) }
+            .filter { $0.kind != .function && $0.kind != .type }
+            .filter { isUndocumented($0.access, $0.documentation, $0.lines) }
             .map { ($0.name, $0.location) }
         return (types + functions + members)
             .sorted { ($0.1.line ?? 0) < ($1.1.line ?? 0) }
