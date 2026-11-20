@@ -53,7 +53,7 @@ struct DocumentedPublicAPITests {
         #expect(try await Checks.documentedPublicAPI.evaluate(context).map(\.location?.line) == [3, 4, 7])
     }
 
-    @Test("removing a doc comment reports its declaration, and the members of a type left alone aren't")
+    @Test("in a file the pull request changes, each undocumented public declaration is reported, changed or not")
     func scope() async throws {
         let context = try Context.fixture(
             diff: """
@@ -79,6 +79,10 @@ struct DocumentedPublicAPITests {
                 """]
         )
         #expect(try await Checks.documentedPublicAPI.evaluate(context) == [
+            .warning(
+                "Public `count` has no doc comment (AGENTS.md).",
+                at: Location(path: "Sources/GitDiffKit/Diff.swift", line: 3)
+            ),
             .warning(
                 "Public `Diff` has no doc comment (AGENTS.md).",
                 at: Location(path: "Sources/GitDiffKit/Diff.swift", line: 5)
@@ -120,9 +124,41 @@ struct DocumentedPublicAPITests {
         #expect(try await Checks.documentedPublicAPI.evaluate(context).map(\.location?.line) == [3, 6])
     }
 
+    @Test("making a type public reports what that exposes inside it, at any depth")
+    func madePublicNested() async throws {
+        let context = try Context.fixture(
+            diff: """
+                diff --git a/Sources/GitDiffKit/Outer.swift b/Sources/GitDiffKit/Outer.swift
+                index 1111111..2222222 100644
+                --- a/Sources/GitDiffKit/Outer.swift
+                +++ b/Sources/GitDiffKit/Outer.swift
+                @@ -1,6 +1,6 @@
+                 /// Outer.
+                -struct Outer {
+                +public struct Outer {
+                     public struct Inner {
+                         public var count = 0
+                     }
+                 }
+
+                """,
+            files: ["Sources/GitDiffKit/Outer.swift": """
+                /// Outer.
+                public struct Outer {
+                    public struct Inner {
+                        public var count = 0
+                    }
+                }
+
+                """]
+        )
+        #expect(try await Checks.documentedPublicAPI.evaluate(context).map(\.location?.line) == [3, 4])
+    }
+
     @Test("a declaration that says public inside a type that isn't isn't public API")
     func enclosingAccess() async throws {
         let added = SampleDiff.adding("Sources/GitDiffKit/Cache.swift", """
+            struct Index { public func reset() {} }
             struct Cache {
                 public func reset() {}
                 public struct Entry {

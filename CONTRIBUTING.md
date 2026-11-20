@@ -116,10 +116,10 @@ short:
   a documentation build that fails on any warning, and the fuzzer. On a
   pull request, [Steward](https://github.com/marosoaie/swift-steward)
   then comments with the build and lint diagnostics on the lines it
-  changes, and fails on any warning there. It also warns at a class, an
-  actor, or a public declaration without a doc comment that the pull
-  request adds, changes or makes public in `Sources/`. Its rules are in
-  [Dangerfile/](Dangerfile/README.md).
+  changes, and fails on any warning there. It also warns at a class or
+  an actor that the pull request adds or changes in `Sources/`, and at
+  each public declaration without a doc comment in a file it changes
+  there. Its rules are in [Dangerfile/](Dangerfile/README.md).
 - Write commit subjects in the imperative mood ("Parse rename headers"),
   with a body that explains why and what you checked.
 - Say in the pull request which tests you ran.

@@ -80,30 +80,33 @@ struct Checks: Dangerfile {
     /// protocol is public, and so is a member of a `public extension`; a
     /// declaration inside a type that isn't public isn't, whatever it says.
     ///
-    /// It reports from the types the pull request changes, not only the
-    /// declarations, so that making a protocol, type or extension public
-    /// reports what that exposes. Top-level `let`, `var` and `typealias`
-    /// aren't in steward-lang-swift's model, so it doesn't see them.
+    /// It checks the whole of each file the pull request changes, so that
+    /// making a type, a protocol or an extension public reports what that
+    /// exposes, at any depth. Top-level `let`, `var` and `typealias` aren't
+    /// in steward-lang-swift's model, so it doesn't see them.
     static let documentedPublicAPI = Rule.swiftSource(
-        "Documented public API", in: "Sources/**/*.swift", reporting: .changedTypes
+        "Documented public API", in: "Sources/**/*.swift", reporting: .changedFiles
     ) { file in
-        let isUndocumented = { (access: AccessLevel, documentation: String?, lines: ClosedRange<Int>) in
-            documentation == nil && access.level >= .public && !file.types.contains { type in
-                type.access.level < .public && type.lines.lowerBound < lines.lowerBound
-                    && type.lines.contains(lines.lowerBound)
-            }
+        let typeAccess = Dictionary(file.types.map { ($0.syntax.id, $0.access.level) }) { first, _ in first }
+        // An extension's type may be declared in another file, so only types cap.
+        let enclosingAccess = { (node: Syntax) in
+            sequence(first: node, next: \.parent).compactMap { typeAccess[$0.id] }.min() ?? .open
+        }
+        let isUndocumented = { (access: AccessLevel, documentation: String?, node: Syntax) in
+            documentation == nil && min(access.level, enclosingAccess(node)) >= .public
         }
         let types = file.types
-            .filter { isUndocumented($0.access, $0.documentation, $0.lines) }
+            .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
             .map { ($0.name, $0.location) }
         let functions = file.functions
-            .filter { isUndocumented($0.access, $0.documentation, $0.lines) }
+            .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
             .map { ($0.name, $0.location) }
         // A member function or type is in `functions` or `types` already.
-        let members = file.memberBlocks.flatMap(\.members)
-            .filter { $0.kind != .function && $0.kind != .type }
-            .filter { isUndocumented($0.access, $0.documentation, $0.lines) }
-            .map { ($0.name, $0.location) }
+        let members = file.memberBlocks
+            .flatMap { block in block.members.map { (member: $0, block: Syntax(block.syntax)) } }
+            .filter { $0.member.kind != .function && $0.member.kind != .type }
+            .filter { isUndocumented($0.member.access, $0.member.documentation, $0.block) }
+            .map { ($0.member.name, $0.member.location) }
         return (types + functions + members)
             .sorted { ($0.1.line ?? 0) < ($1.1.line ?? 0) }
             .map { name, location in
