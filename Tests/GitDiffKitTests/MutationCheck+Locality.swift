@@ -63,20 +63,20 @@ extension MutationCheck {
         return nil
     }
 
-    func changedLinesLocality(_ mutated: ParseResults, footprint: DiffWindow.Footprint) -> String? {
+    func changedLineNumbersLocality(_ mutated: ParseResults, footprint: DiffWindow.Footprint) -> String? {
         let (before, after) = untouchedCounts(footprint)
         let cleanFiles = clean.summary.files
         let untouched = cleanFiles.prefix(before) + cleanFiles.suffix(after)
         // A damaged file may come out under any path, even an untouched
-        // file's, and `ChangedLines` would merge the two.
+        // file's, and `ChangedLineNumbers` would merge the two.
         let damaged = cleanFiles.dropFirst(before).dropLast(after)
             + mutated.summary.files.dropFirst(before).dropLast(after)
         let excluded = Set(damaged.compactMap { $0.header.newPath?.string })
         let differing = Set(untouched.compactMap { $0.header.newPath?.string })
             .subtracting(excluded)
-            .filter { mutated.changedLines.files[$0] != clean.changedLines.files[$0] }
+            .filter { mutated.changedLineNumbers.files[$0] != clean.changedLineNumbers.files[$0] }
             .sorted()
-        return differing.isEmpty ? nil : "ChangedLines differs for untouched \(differing.prefix(3))"
+        return differing.isEmpty ? nil : "ChangedLineNumbers differs for untouched \(differing.prefix(3))"
     }
 
     func modelLocality(_ mutated: ParseResults, footprint: DiffWindow.Footprint) -> String? {

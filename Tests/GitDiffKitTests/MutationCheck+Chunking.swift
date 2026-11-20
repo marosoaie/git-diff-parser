@@ -40,7 +40,7 @@ extension MutationCheck {
     }
 
     /// The collectors agree with the events and with each other: the model
-    /// replays as the events, the summary and `ChangedLines` are what the
+    /// replays as the events, the summary and `ChangedLineNumbers` are what the
     /// model's files say, and the model's rendering parses back to it.
     static func consistency(of results: ParseResults, bytes: [UInt8]) -> [String] {
         let damage = EventRecorder.damage(in: results.events)
@@ -69,7 +69,8 @@ extension MutationCheck {
             results.diff.damage == EventRecorder.damage(in: modelEvents) && results.summary.damage == damage
                 ? nil : "the collectors' damage differs from the events'",
             results.summary.files == files ? nil : "DiffSummary's files differ from Diff's",
-            results.changedLines == ChangedLines(files: additions) ? nil : "ChangedLines differs from Diff's additions",
+            results.changedLineNumbers == ChangedLineNumbers(files: additions)
+                ? nil : "ChangedLineNumbers differs from Diff's additions",
             renderingRoundTrip(of: results.diff),
         ].compactMap(\.self)
     }

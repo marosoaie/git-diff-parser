@@ -6,7 +6,7 @@
 /// on chunking, the collectors must agree with the events (and, without
 /// damage, the model with its own rendering), and the files outside the
 /// mutation's footprint (`DiffWindow.footprint(of:)`) must come out
-/// exactly as in the clean parse: their events, their `ChangedLines`
+/// exactly as in the clean parse: their events, their `ChangedLineNumbers`
 /// entries, their `DiffSummary` and `Diff` files. A `diff ` line resets
 /// the parser, so damage can't spread past the next intact one; before
 /// the edit, the input is the same.
@@ -82,7 +82,7 @@ struct MutationCheck {
                 ),
                 cappedEventLocality(capped, options: options, footprint: footprint, addedLines: addedLines),
                 summaryLocality(mutated, footprint: footprint),
-                changedLinesLocality(mutated, footprint: footprint),
+                changedLineNumbersLocality(mutated, footprint: footprint),
                 modelLocality(mutated, footprint: footprint),
                 damageLocality(mutated, footprint: footprint, addedLines: addedLines, bytes: bytes),
             ].compactMap(\.self)

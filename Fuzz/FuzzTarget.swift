@@ -31,7 +31,7 @@ public func fuzz(_ start: UnsafeRawPointer, _ count: Int) -> CInt {
 enum FuzzTarget {
     static func check(_ bytes: [UInt8]) {
         let chunkSize = 1 + Int(bytes.first ?? 0) % 64
-        precondition(changedLines(of: bytes) == changedLines(of: bytes, chunkSize: chunkSize))
+        precondition(changedLineNumbers(of: bytes) == changedLineNumbers(of: bytes, chunkSize: chunkSize))
         precondition(summary(of: bytes) == summary(of: bytes, chunkSize: chunkSize))
         let diff = model(of: bytes)
         precondition(diff == model(of: bytes, chunkSize: chunkSize))
@@ -54,10 +54,10 @@ enum FuzzTarget {
         precondition(reparsed.hasNoNewlineAtEnd == kept.hasNoNewlineAtEnd)
     }
 
-    private static func changedLines(of bytes: [UInt8], chunkSize: Int = .max) -> ChangedLines {
-        var parser = DiffEventParser(consumer: ChangedLines.Collector())
+    private static func changedLineNumbers(of bytes: [UInt8], chunkSize: Int = .max) -> ChangedLineNumbers {
+        var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
         chunks(of: bytes, size: chunkSize).forEach { parser.consume($0) }
-        return parser.finalize().changedLines
+        return parser.finalize().changedLineNumbers
     }
 
     private static func summary(of bytes: [UInt8], chunkSize: Int = .max) -> DiffSummary {

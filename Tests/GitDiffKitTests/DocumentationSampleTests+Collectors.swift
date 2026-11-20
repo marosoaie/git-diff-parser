@@ -5,7 +5,7 @@ import Testing
 /// The samples of Choosing a Collector.
 extension DocumentationSampleTests {
     @Test("Choosing a Collector: warnings on changed lines")
-    func changedLinesFilter() {
+    func changedLineNumbersFilter() {
         var printedLines: [String] = []
         func print(_ items: Any...) { printedLines.append(Self.printed(items)) }
 
@@ -20,7 +20,7 @@ extension DocumentationSampleTests {
             Warning(path: "Sources/App/Greeting.swift", line: 9, message: "line too long"),
             Warning(path: "Sources/App/Legacy.swift", line: 1, message: "file deleted"),
         ]
-        let changes = ChangedLines(diff: diffText)
+        let changes = ChangedLineNumbers(diff: diffText)
         let onChangedLines = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
         print(onChangedLines.map(\.message))   // ["unused variable"]
 

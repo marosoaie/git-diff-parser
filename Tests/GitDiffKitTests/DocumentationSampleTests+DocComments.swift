@@ -4,15 +4,15 @@ import Testing
 
 /// The samples in the library's doc comments.
 extension DocumentationSampleTests {
-    @Test("ChangedLines.Collector: driving it with the event parser")
-    func changedLinesCollectorSample() {
+    @Test("ChangedLineNumbers.Collector: driving it with the event parser")
+    func changedLineNumbersCollectorSample() {
         let diffBytes = Array(diffText.utf8)
 
-        var parser = DiffEventParser(consumer: ChangedLines.Collector())
+        var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
         parser.consume(diffBytes)
-        let changes = parser.finalize().changedLines
+        let changes = parser.finalize().changedLineNumbers
 
-        #expect(changes == ChangedLines(diff: diffText))
+        #expect(changes == ChangedLineNumbers(diff: diffText))
     }
 
     @Test("DiffEventParser: any consumer")

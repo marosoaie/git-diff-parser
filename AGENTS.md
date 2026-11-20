@@ -70,12 +70,16 @@ closures rather than subclassing.
 
 **Swift API Design Guidelines** for all public API: argument labels that
 read as prose (`contains(line:in:tolerance:)`), initializers for conversions
-(`ChangedLines(diff:)`), `consume(...)`/`finalize()` for streaming builders.
+(`ChangedLineNumbers(diff:)`), `consume(...)`/`finalize()` for streaming builders.
 Every public symbol carries a doc comment that starts with a one-sentence
 summary; document behavioral quirks (normalization, performance caveats) at
 the declaration. Public model types get explicit public memberwise
 initializers. Encoded key names are wire contracts — decouple them from
 Swift property names with `CodingKeys` instead of renaming properties.
+In a name, "lines" means lines of text: one span of line numbers is a
+`lineRange`, a set, list or per-file map of them is `…LineNumbers`
+(`ChangedLineNumbers`, `allLineNumbers`), and one number stays `line` or
+`lineNumber`.
 
 **Strict concurrency and memory safety.** The package enables
 `ExistentialAny`, `MemberImportVisibility`, `InferIsolatedConformances`,

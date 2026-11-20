@@ -1,8 +1,8 @@
 import Testing
 @testable import GitDiffKit
 
-@Suite("ChangedLines(diff:)")
-struct ChangedLinesTests {
+@Suite("ChangedLineNumbers(diff:)")
+struct ChangedLineNumbersTests {
     @Test("modified file records added line numbers on the new side")
     func modifiedFile() {
         let diff = #"""
@@ -18,8 +18,8 @@ struct ChangedLinesTests {
              let d = 4
          }
         """#
-        let changes = ChangedLines(diff: diff)
-        #expect(changes.lineSets == ["Sources/App/Foo.swift": [11, 12]])
+        let changes = ChangedLineNumbers(diff: diff)
+        #expect(changes.lineNumberSets == ["Sources/App/Foo.swift": [11, 12]])
     }
 
     @Test("multiple hunks and multiple files")
@@ -44,8 +44,8 @@ struct ChangedLinesTests {
         -let old = 1
         +let new = 1
         """#
-        let changes = ChangedLines(diff: diff)
-        #expect(changes.lineSets == [
+        let changes = ChangedLineNumbers(diff: diff)
+        #expect(changes.lineNumberSets == [
             "A.swift": [1, 22],
             "B.swift": [5],
         ])
@@ -64,8 +64,8 @@ struct ChangedLinesTests {
         +line two
         +line three
         """#
-        let changes = ChangedLines(diff: diff)
-        #expect(changes.lineSets == ["New.swift": [1, 2, 3]])
+        let changes = ChangedLineNumbers(diff: diff)
+        #expect(changes.lineNumberSets == ["New.swift": [1, 2, 3]])
     }
 
     @Test("deleted file produces no entries")
@@ -79,7 +79,7 @@ struct ChangedLinesTests {
         -bye
         -bye
         """#
-        #expect(ChangedLines(diff: diff).isEmpty)
+        #expect(ChangedLineNumbers(diff: diff).isEmpty)
     }
 
     @Test("pure rename produces no entries, rename with edits uses the new path")
@@ -90,7 +90,7 @@ struct ChangedLinesTests {
         rename from Old.swift
         rename to Renamed.swift
         """#
-        #expect(ChangedLines(diff: pureRename).isEmpty)
+        #expect(ChangedLineNumbers(diff: pureRename).isEmpty)
 
         let renameWithEdit = #"""
         diff --git a/Old.swift b/Renamed.swift
@@ -104,7 +104,7 @@ struct ChangedLinesTests {
         +new line
          context
         """#
-        #expect(ChangedLines(diff: renameWithEdit).lineSets == ["Renamed.swift": [3]])
+        #expect(ChangedLineNumbers(diff: renameWithEdit).lineNumberSets == ["Renamed.swift": [3]])
     }
 
     @Test("binary files are skipped")
@@ -114,7 +114,7 @@ struct ChangedLinesTests {
         index 1234567..89abcde 100644
         Binary files a/img.png and b/img.png differ
         """#
-        #expect(ChangedLines(diff: diff).isEmpty)
+        #expect(ChangedLineNumbers(diff: diff).isEmpty)
     }
 
     @Test("added content that itself looks like diff syntax is not misparsed")
@@ -131,8 +131,8 @@ struct ChangedLinesTests {
         +@@ fake hunk @@
          last
         """#
-        let changes = ChangedLines(diff: diff)
-        #expect(changes.lineSets == ["notes.md": [2, 3]])
+        let changes = ChangedLineNumbers(diff: diff)
+        #expect(changes.lineNumberSets == ["notes.md": [2, 3]])
     }
 
     @Test("no newline marker does not shift line numbers")
@@ -148,7 +148,7 @@ struct ChangedLinesTests {
         +new
         \ No newline at end of file
         """#
-        #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [2]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["f.txt": [2]])
     }
 
     @Test("empty context lines (stripped trailing space) still advance counters")
@@ -166,7 +166,7 @@ struct ChangedLinesTests {
              b
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [3]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["f.txt": [3]])
     }
 
     @Test("quoted paths with octal escapes are decoded")
@@ -179,7 +179,7 @@ struct ChangedLinesTests {
         -x
         +y
         """#
-        #expect(ChangedLines(diff: diff).lineSets == ["aä.swift": [1]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["aä.swift": [1]])
     }
 
     @Test("diffs generated with --no-prefix keep bare paths")
@@ -192,7 +192,7 @@ struct ChangedLinesTests {
          x
         +y
         """#
-        #expect(ChangedLines(diff: diff).lineSets == ["Sources/Foo.swift": [2]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["Sources/Foo.swift": [2]])
     }
 
     @Test("git's full C-style escape set is decoded in quoted paths")
@@ -205,7 +205,7 @@ struct ChangedLinesTests {
             +x
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == [expected: [1]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == [expected: [1]])
     }
 
     @Test(
@@ -227,7 +227,7 @@ struct ChangedLinesTests {
             +x
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == [path: [1]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == [path: [1]])
     }
 
     @Test("git diff -R's swapped a/ prefix is stripped on the new side")
@@ -241,7 +241,7 @@ struct ChangedLinesTests {
             +y
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [2]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["f.txt": [2]])
     }
 
     @Test("--no-prefix paths in real single-letter directories are kept intact")
@@ -257,7 +257,7 @@ struct ChangedLinesTests {
             +y
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == ["c/w/f1.txt": [2]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["c/w/f1.txt": [2]])
     }
 
     @Test("hunk header with omitted counts defaults to 1")

@@ -13,7 +13,7 @@ whole diff with every line's content.
 ```swift
 import GitDiffKit
 
-let changes = ChangedLines(diff: diffText)
+let changes = ChangedLineNumbers(diff: diffText)
 if changes.contains(line: 3, in: "Sources/App/Greeting.swift") {
     print("line 3 of Greeting.swift is new or changed")
 }
@@ -22,7 +22,7 @@ if changes.contains(line: 3, in: "Sources/App/Greeting.swift") {
 - **Streaming.** Feed the diff in chunks of any size, split anywhere,
   even inside a UTF-8 character. The result is the same for any
   chunking, and working memory stays bounded however large the input.
-- **Three collectors.** ``ChangedLines`` records added lines per file,
+- **Three collectors.** ``ChangedLineNumbers`` records added lines per file,
   ``DiffSummary`` each file's status and line counts, and ``Diff`` the
   full model, which renders git's output back byte for byte, merges'
   combined diffs aside. A ``DiffEventConsumer`` of your own sees every
@@ -52,7 +52,7 @@ Start with <doc:GettingStarted>, then pick a collector with
 
 ### Changed Lines
 
-- ``ChangedLines``
+- ``ChangedLineNumbers``
 - ``LineRangeSet``
 
 ### File Summaries

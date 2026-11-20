@@ -14,7 +14,7 @@
 /// **Memory grows with the diff's content**: the model keeps every byte of
 /// it, packed per file, and peaks at about 2.5× the diff's size (187 MB
 /// for the Linux kernel's 74 MB release diff, 1.1 GB for six copies of
-/// it). For huge diffs, prefer a ``DiffSummary``, a ``ChangedLines``, or
+/// it). For huge diffs, prefer a ``DiffSummary``, a ``ChangedLineNumbers``, or
 /// a ``DiffEventConsumer`` of your own, whose memory doesn't grow with content.
 ///
 /// ``render(_:)`` writes it back as text: for git's output, the input byte

@@ -49,7 +49,7 @@ and ask about its lines:
 ```swift
 import GitDiffKit
 
-let changes = ChangedLines(diff: diffText)
+let changes = ChangedLineNumbers(diff: diffText)
 let paths = changes.sortedPaths   // ["README.md", "Sources/App/Greeting.swift"]
 let greeting = changes.ranges(in: "Sources/App/Greeting.swift")   // [2...3]
 let isChanged = changes.contains(line: 3, in: "Sources/App/Greeting.swift")   // true
@@ -70,7 +70,7 @@ Keep only as much of the diff as your question needs:
 
 | Collector | Keeps | Memory grows with | Kernel diff (74 MB) |
 |---|---|---|---|
-| `ChangedLines` | Each file's added lines, as ranges | The number of edits | 0.11 s, 22 MB |
+| `ChangedLineNumbers` | Each file's added lines, as ranges | The number of edits | 0.11 s, 22 MB |
 | `DiffSummary` | Each file's status (added, deleted, renamed, copied, mode change, binary), paths, and line counts | The number of files | 0.13 s, 24 MB |
 | `Diff` | Everything: hunks and every line's content; renders git's output back byte for byte, merges aside | The diff's content, about 2.5× its size | 0.20 s, 187 MB |
 

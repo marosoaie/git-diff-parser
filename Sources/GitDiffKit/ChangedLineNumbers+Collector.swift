@@ -1,11 +1,11 @@
-extension ChangedLines {
+extension ChangedLineNumbers {
     /// Collects the lines a diff adds, per file, from parser events: the
-    /// consumer behind ``ChangedLines/init(diff:)``.
+    /// consumer behind ``ChangedLineNumbers/init(diff:)``.
     ///
     /// ```swift
-    /// var parser = DiffEventParser(consumer: ChangedLines.Collector())
+    /// var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
     /// parser.consume(diffBytes)
-    /// let changes = parser.finalize().changedLines
+    /// let changes = parser.finalize().changedLineNumbers
     /// ```
     ///
     /// A file's lines are recorded under its new path; deleted files have
@@ -17,16 +17,16 @@ extension ChangedLines {
     /// hostile diff can't make the collector quadratic, and memory stays
     /// within a small multiple of the merged ranges.
     public struct Collector: DiffEventConsumer, Sendable {
-        /// The lines collected so far; complete once the parser is
+        /// The line numbers collected so far; complete once the parser is
         /// finalized.
-        public var changedLines: ChangedLines {
+        public var changedLineNumbers: ChangedLineNumbers {
             deferred.reduce(into: collected) { changes, entry in
                 changes.add(LineRangeSet(entry.value), to: entry.key)
             }
         }
 
         /// Every file's lines but those in `deferred`.
-        private var collected = ChangedLines()
+        private var collected = ChangedLineNumbers()
         /// Lines of paths seen before that start below their last range,
         /// kept until a path has as many as it has ranges, then merged in
         /// one sort: merging each file as it ends would shift the path's
@@ -87,23 +87,25 @@ extension ChangedLines {
             runLimit = Self.minimumRunLimit
         }
 
-        private mutating func record(_ lines: LineRangeSet, under path: String) {
-            guard let rangeCount = rangeCountIfMergingIsCostly(lines, under: path) else {
-                return collected.add(lines, to: path)
+        private mutating func record(_ lineNumbers: LineRangeSet, under path: String) {
+            guard let rangeCount = rangeCountIfMergingIsCostly(lineNumbers, under: path) else {
+                return collected.add(lineNumbers, to: path)
             }
-            deferred[path, default: []].append(contentsOf: lines.ranges)
+            deferred[path, default: []].append(contentsOf: lineNumbers.ranges)
             if let pending = deferred[path], pending.count >= rangeCount {
                 deferred[path] = nil
                 collected.add(LineRangeSet(pending), to: path)
             }
         }
 
-        /// How many ranges `path` has, if merging `lines` into them would
-        /// shift them; nil for a new path or lines that extend it cheaply.
-        /// Apart from `record`, so no copy of the path's ranges outlives the
-        /// check and makes the merge copy them.
-        private func rangeCountIfMergingIsCostly(_ lines: LineRangeSet, under path: String) -> Int? {
-            guard let existing = collected.files[path], !existing.extendsCheaply(with: lines) else { return nil }
+        /// How many ranges `path` has, if merging `lineNumbers` into them
+        /// would shift them; nil for a new path or line numbers that extend
+        /// it cheaply. Apart from `record`, so no copy of the path's ranges
+        /// outlives the check and makes the merge copy them.
+        private func rangeCountIfMergingIsCostly(_ lineNumbers: LineRangeSet, under path: String) -> Int? {
+            guard let existing = collected.files[path], !existing.extendsCheaply(with: lineNumbers) else {
+                return nil
+            }
             return existing.ranges.count
         }
     }

@@ -1,5 +1,11 @@
 # The layered diff model
 
+`ChangedLineNumbers` was named `ChangedLines` until
+[#28](https://github.com/marosoaie/git-diff-parser/pull/28) renamed it,
+after 0.3.0. This record uses the current name, so a search finds it;
+where it speaks of "today's" API or of 0.1 callers, they wrote
+`ChangedLines`.
+
 **Status: reviewed (plan step 2.2).** The maintainer answered the open
 questions on 2026-10-25; [Answered questions](#answered-questions) records
 the answers, and the recommendations below are updated to match. Steps 2.3
@@ -19,7 +25,7 @@ described in [Measurements](#measurements).
 | D3 | `@inlinable` | Not up front. Measure again in 2.4 with a downstream consumer | Inline the whole hot path now |
 | D4 | Header delivery | One `FileHeader` value per file, delivered once the extended headers are complete; no heap allocation per hunk | One callback per extended header line |
 | D5 | Line content payload | `Span<UInt8>`, passed as a bare callback parameter; platform floors at the 26 releases | `ArraySlice<UInt8>`; `String` |
-| D6 | Paths | Raw bytes (`DiffPath`), with a lossy `String` view; `ChangedLines` keeps `String` keys | `String` everywhere, as today |
+| D6 | Paths | Raw bytes (`DiffPath`), with a lossy `String` view; `ChangedLineNumbers` keeps `String` keys | `String` everywhere, as today |
 | D7 | CR and line cap | Strip `\r` but record it per line; keep the 1 MiB cap but flag truncated lines, and make the cap configurable; the full model raises it to 64 MiB | Keep `\r` in the content; drop the cap |
 | D8 | Full-model storage | One byte arena per file, with lines as offsets into it | One `[UInt8]` per line |
 | D9 | Combined diffs | Recognize (`diff --cc` and `diff --combined`) and skip safely in 0.2: result-side header parsed, `@@@` hunks consumed by their counts, no line events; the skip is documented | Full N-parent line events now |
@@ -29,7 +35,7 @@ described in [Measurements](#measurements).
 ## Context and constraints
 
 The plan (Decisions, 2026-10-22) makes the library layered: a streaming
-event API at the bottom, with collectors on top — `ChangedLines` (today's
+event API at the bottom, with collectors on top — `ChangedLineNumbers` (today's
 result), a per-file summary, and the full diff with content. The Danger
 replacement in swift-steward (phase 4) will consume the full model.
 
@@ -106,8 +112,8 @@ MiB chunks; [M1](#m1-event-api-variants)):
 
 | Variant | Time (min of 5 × 15) | Heap allocations |
 |---|---|---|
-| Today's `DiffParser` → `ChangedLines` | 85 ms | ≈ 94k |
-| Generic consumer, `ChangedLines`-equivalent collector, not specialized | 88 ms | ≈ 42k |
+| Today's `DiffParser` → `ChangedLineNumbers` | 85 ms | ≈ 94k |
+| Generic consumer, `ChangedLineNumbers`-equivalent collector, not specialized | 88 ms | ≈ 42k |
 | Same, specialized (`@inlinable` parser) | 96 ms | ≈ 42k |
 | Generic consumer, counting collector, not specialized | 53 ms | ≈ 12.4k (one path `String` per file) |
 | Same, specialized | 62 ms | ≈ 12.4k |
@@ -129,7 +135,7 @@ What decides it:
   likely code layout; the measurement rules out "it must be inlinable to
   be fast", not more.
 - **The event layer probably fits the 2.4 gate, but M1 is a lower
-  bound.** The `ChangedLines`-equivalent collector on the prototype runs
+  bound.** The `ChangedLineNumbers`-equivalent collector on the prototype runs
   within 4–13 % of today's parser, parse only; the library's own facade
   is specialized by whole-module optimization, so variant E (+13 %) is
   the relevant one. The prototype builds no `FileHeader`, buffers no
@@ -155,7 +161,7 @@ So speed doesn't separate options 1 and 2; semantics do:
   except an extra indirection. It can be offered later as one ready-made
   consumer (`ClosureConsumer<State>`) on top of option 1.
 - A generic consumer composes: a `Pair<First, Second>` consumer runs
-  `ChangedLines` and the summary in one pass with no erasure, and the
+  `ChangedLineNumbers` and the summary in one pass with no erasure, and the
   library's own collectors live in the parser's module, so whole-module
   optimization specializes them regardless of D3.
 - `Span` payloads (D5) can only be bare function parameters — they can't
@@ -237,8 +243,8 @@ last line has no `\n`; `HunkHeader.endsWithCarriageReturn` and
   delivers it at the first `@@`, binary marker, next file, or end of input.
   A file with no hunks (pure rename, mode change) still gets
   `beginFile`/`endFile`.
-- **Keeping today's API**: `DiffParser` and `ChangedLines(diff:)` stay as
-  a facade over `DiffEventParser<ChangedLines.Collector>`, so 0.1 callers
+- **Keeping today's API**: `DiffParser` and `ChangedLineNumbers(diff:)` stay as
+  a facade over `DiffEventParser<ChangedLineNumbers.Collector>`, so 0.1 callers
   don't break. Whether to rename or retire the facade is for step 5.1.
 - **D2**: no `AsyncSequence` in 0.2. Callers with an async byte source
   call `consume(_:)` inside their own `for await` loop. If one is added
@@ -328,9 +334,9 @@ the input back (2.6).
 
 **Recommendation:** `DiffPath` stores the unquoted bytes and offers
 `description`/`string` (lossy decoding, documented at the declaration) and
-`==` on bytes. `ChangedLines` keeps `String` keys — every consumer today
+`==` on bytes. `ChangedLineNumbers` keeps `String` keys — every consumer today
 uses them, and lossy decoding there only matters for invalid-UTF-8 paths.
-`ChangedLines` documents that its `String` keys compare by Unicode
+`ChangedLineNumbers` documents that its `String` keys compare by Unicode
 canonical equivalence, so the NFC and NFD spellings of one name, which git
 treats as two paths, share a key.
 *Trade-off:* one more type for callers of the full model to learn, versus
@@ -386,7 +392,7 @@ round-trip exclusions below.
 
 ### Collectors
 
-- **`ChangedLines`**: semantics unchanged (new-side added lines, deleted
+- **`ChangedLineNumbers`**: semantics unchanged (new-side added lines, deleted
   and binary files absent, renamed files under their new path), re-built
   on events in 2.4. Gate: identical results on every fixture and
   chunking.
@@ -523,14 +529,14 @@ can't be values.
 
 ### Carriage returns and the 1 MiB cap (D7)
 
-Both of today's normalizations are invisible to `ChangedLines`, but the
+Both of today's normalizations are invisible to `ChangedLineNumbers`, but the
 full model and the round-trip property (2.6) can't hide them:
 
 - **`\r`.** A CRLF file's content lines end in `\r\n` inside the diff;
   stripping the `\r` changes the content and breaks round-tripping, while
   keeping it would break header matching for diffs that went through a
   CRLF transport. **Recommendation:** keep stripping (headers and
-  `ChangedLines` behave exactly as today) and record it as
+  `ChangedLineNumbers` behave exactly as today) and record it as
   `LineInfo.endsWithCarriageReturn`, so the model can render it back.
 - **1 MiB cap.** Minified and generated files do have megabyte lines.
   **Recommendation:** keep the cap as the default (it bounds the carry
@@ -571,7 +577,7 @@ previous line's ends): old and new number, that offset, and a flags byte,
 32 bytes with `Int` offsets. With `Int` offsets there is no 4 GiB limit
 to police; everything else (raw header, headings, binary patch and
 unrecognized lines) shares a second arena. On the kernel diff, release
-build, 4 MiB chunks: the full model builds in 0.20 s (`ChangedLines`:
+build, 4 MiB chunks: the full model builds in 0.20 s (`ChangedLineNumbers`:
 0.11 s) and peaks at 187 MB RSS, 2.5× the 74 MB input; six concatenated
 copies (443 MB) peak at 1.1 GB. Trimming each file's arrays to size when
 it ends saved only 13 MB and would raise the transient peak of a single
@@ -619,9 +625,9 @@ events. The counting rule, checked against the example: a line with no
 `-` column is in the result and uses the new side's budget, plus parent
 *i*'s budget wherever column *i* is a space; a line with a `-` column is
 not in the result and uses parent *i*'s budget only where column *i* is
-`-`. `ChangedLines` stays
+`-`. `ChangedLineNumbers` stays
 empty for merges, deliberately: the skip is documented at the declarations
-(`ChangedLines`, `DiffEventParser`, `FileHeader.Format.combined`) and in
+(`ChangedLineNumbers`, `DiffEventParser`, `FileHeader.Format.combined`) and in
 the user docs (2.8), pointing callers to
 `--diff-merges=first-parent` or a three-dot diff (measured: the
 first-parent diff of the same merge yields lines 2 and 4).
@@ -674,7 +680,7 @@ timestamps are stripped, and `diff -ruN old new` yields `new/f.txt` and
   creation or deletion.
 - Paths carry the compared directories (`old/`, `new/`) rather than git's
   `a/` `b/`. Keep today's prefix heuristic for every format, so
-  `ChangedLines` results don't change — Mercurial's plain output, for
+  `ChangedLineNumbers` results don't change — Mercurial's plain output, for
   one, uses `a/` and `b/` — and offer
   `DiffPath.droppingLeadingComponents(_:)` for `patch -p1` style
   stripping. `format: .unified` tells callers which case they have.
@@ -716,7 +722,7 @@ it affects; the sections above already reflect the answers.
 
 1. **D1, naming: accepted as proposed.** A generic
    `DiffEventParser<Consumer: DiffEventConsumer>` with `mutating`
-   callbacks; `DiffParser` stays as the `ChangedLines` facade until 5.1;
+   callbacks; `DiffParser` stays as the `ChangedLineNumbers` facade until 5.1;
    the models are `Diff`, `DiffFile`, `DiffLine`, and `DiffSummary`.
 2. **D5: `Span<UInt8>`, as proposed.** Line content reaches consumers as
    a bare `Span<UInt8>` callback parameter, and the library ships the
@@ -724,7 +730,7 @@ it affects; the sections above already reflect the answers.
    floors, the back-deployment check on older macOS is no longer needed.
 3. **D6: bytes, as proposed** ("since we also support Linux"). The full
    model's paths are `DiffPath`: exact unquoted bytes, with `==` and
-   hashing on bytes and a lossy `string`/`description`. `ChangedLines`
+   hashing on bytes and a lossy `string`/`description`. `ChangedLineNumbers`
    keeps `String` keys and documents that they compare by Unicode
    canonical equivalence, so NFC and NFD spellings of one name, which git
    treats as two paths, share a key.
@@ -785,14 +791,14 @@ for i in 1 2 3 4 5; do for v in A- B- C- D- E- F- G- K-; do
 | B: generic, unspecialized, counting | 52.7 ms | 52.8 ms | 24,860 |
 | C: generic, specialized, counting | 62.0 ms | 62.1 ms | 24,860 |
 | D: as C, `Span` payload | 61.9 ms | 62.5 ms | 24,860 |
-| E: specialized, `ChangedLines` collector | 95.6 ms | 96.6 ms | 84,648 |
-| F: unspecialized, `ChangedLines` collector | 88.2 ms | 89.3 ms | 84,640 |
+| E: specialized, `ChangedLineNumbers` collector | 95.6 ms | 96.6 ms | 84,648 |
+| F: unspecialized, `ChangedLineNumbers` collector | 88.2 ms | 89.3 ms | 84,640 |
 | G: closures, counting | 56.8 ms | 57.4 ms | 24,864 |
 | H: owned events, drained per chunk | 174 ms | – | 2,900,850 |
 | I: `AsyncStream`, per event | 10,353 ms | – | 6,302,494 |
 | K: decode every line to `String` | 99.8 ms | 100.1 ms | 2,284,694 |
 
-E and F produce a `ChangedLines` equal (`==`) to today's parser on the
+E and F produce a `ChangedLineNumbers` equal (`==`) to today's parser on the
 kernel diff. All counting variants report the same 1,633,764 lines. An
 earlier single run had C faster than B (47 vs 55 ms); the interleaved runs
 above reversed that consistently, so the doc claims only "no meaningful
@@ -834,7 +840,7 @@ A scratch repository with a merge (`git merge --no-commit`, edited
 resolution), a binary file changed with `--binary`, and
 `diff -ruN old new`, each fed to today's `DiffParser`:
 
-| Input | Today's `ChangedLines` |
+| Input | Today's `ChangedLineNumbers` |
 |---|---|
 | `git show --cc <merge>` | empty |
 | `git show --diff-merges=first-parent <merge>` | `list.md: [2...2, 4...4]` |

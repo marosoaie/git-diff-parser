@@ -17,11 +17,11 @@ struct MalformedInputTests {
 
             """
         // The +++ path is unusable, so the diff --git line's name stands in.
-        #expect(ChangedLines(diff: diff).lineSets == ["x": [1]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["x": [1]])
         // Without one, the added line has nowhere to be recorded: the +++
         // line is empty, or all trailer.
         ["", "\t2024-01-01"].forEach { payload in
-            #expect(ChangedLines(diff: "--- /dev/null\n+++ \(payload)\n@@ -0,0 +1 @@\n+z\n").isEmpty)
+            #expect(ChangedLineNumbers(diff: "--- /dev/null\n+++ \(payload)\n@@ -0,0 +1 @@\n+z\n").isEmpty)
         }
     }
 
@@ -43,7 +43,7 @@ struct MalformedInputTests {
             +y
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == [
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == [
             "A.swift": [2],
             "B.swift": [2],
         ])
@@ -62,7 +62,7 @@ struct MalformedInputTests {
             +z
 
             """
-        #expect(ChangedLines(diff: diff).isEmpty)
+        #expect(ChangedLineNumbers(diff: diff).isEmpty)
     }
 
     @Test("extreme tolerances never overflow")
@@ -71,7 +71,7 @@ struct MalformedInputTests {
         #expect(ranges.contains(1, tolerance: Int.max))
         #expect(ranges.contains(Int.max - 1, tolerance: Int.max))
         #expect(!ranges.contains(9, tolerance: -5))  // negative clamps to 0
-        let changes = ChangedLines(files: ["a": Set([5])])
+        let changes = ChangedLineNumbers(files: ["a": Set([5])])
         #expect(changes.contains(line: 1, in: "a", tolerance: Int.max))
     }
 
@@ -87,7 +87,7 @@ struct MalformedInputTests {
             +x
 
             """
-        #expect(ChangedLines(diff: diff).isEmpty)
+        #expect(ChangedLineNumbers(diff: diff).isEmpty)
         #expect(HunkHeader.parse(ArraySlice("@@ -1 +\(HunkHeader.maxLineNumber + 1),1 @@".utf8)) == nil)
         // The largest accepted value must survive a full hunk without traps.
         let boundary = """
@@ -98,7 +98,7 @@ struct MalformedInputTests {
             +x
 
             """
-        #expect(ChangedLines(diff: boundary).lineSets == ["x": [HunkHeader.maxLineNumber]])
+        #expect(ChangedLineNumbers(diff: boundary).lineNumberSets == ["x": [HunkHeader.maxLineNumber]])
     }
 
     @Test("a deletion-only hunk cannot invent added lines")
@@ -114,7 +114,7 @@ struct MalformedInputTests {
             -z
 
             """
-        #expect(ChangedLines(diff: diff).isEmpty)
+        #expect(ChangedLineNumbers(diff: diff).isEmpty)
     }
 
     @Test("a line beyond the declared counts re-parses as a header")
@@ -135,7 +135,7 @@ struct MalformedInputTests {
             +z
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == [
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == [
             "A": [1],
             "B.swift": [2],
         ])
@@ -159,6 +159,6 @@ struct MalformedInputTests {
             +z
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == ["A": [1, 2]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["A": [1, 2]])
     }
 }

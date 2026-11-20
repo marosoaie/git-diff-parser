@@ -51,7 +51,7 @@ the damage was found (one past the last line for damage found at the
 end of input), and ``DamageReport/file`` is the file's header as far as
 it was read.
 
-``ChangedLines`` doesn't keep reports. To see them alongside changed
+``ChangedLineNumbers`` doesn't keep reports. To see them alongside changed
 lines, parse with a ``DiffSummary`` too, or write a consumer whose
 ``DiffEventConsumer/damage(_:)`` keeps them (see
 <doc:Streaming#Write-your-own-consumer>).

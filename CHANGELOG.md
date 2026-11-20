@@ -5,6 +5,26 @@ Every notable change to GitDiffKit. The format follows
 follow [semantic versioning](https://semver.org/spec/v2.0.0.html): until
 1.0, a minor version may break the API.
 
+## Unreleased
+
+### Breaking changes
+
+- **The line-number API is renamed.** In a name, "lines" now means
+  lines of text; a set, list or per-file map of line numbers is
+  `…LineNumbers` (marosoaie/steward-lang-swift#26). This is a plain
+  rename: the old names are gone, with no deprecated forms.
+
+  | Before | After |
+  |---|---|
+  | `ChangedLines` | `ChangedLineNumbers` |
+  | `ChangedLines.Collector` | `ChangedLineNumbers.Collector` |
+  | `ChangedLines.Collector.changedLines` | `ChangedLineNumbers.Collector.changedLineNumbers` |
+  | `LineRangeSet.allLines` | `LineRangeSet.allLineNumbers` |
+
+  Names that hold text, counts or a single number keep theirs:
+  `DiffFile.lines`, `DiffHunk.lines`, `LineRangeSet`, `lineCount`,
+  `contains(line:in:tolerance:)` and the like.
+
 ## 0.3.0 — 2026-11-13
 
 The API review before 1.0: two older entry points go, coloured diffs
