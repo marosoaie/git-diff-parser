@@ -28,7 +28,7 @@ Parsing is layered (see [docs/diff-model.md](docs/diff-model.md)):
   allocates nothing per line. The consumer is a generic parameter, so the
   calls specialize and inline.
 - Collectors are consumers that keep what they need, from least to most:
-  - `ChangedLines.Collector` records added lines per file.
+  - `ChangedLineNumbers.Collector` records added lines per file.
   - `DiffSummary.Collector` keeps each file's `FileHeader` and its added
     and deleted line counts. Its memory grows with the file count, not the
     content.
@@ -148,11 +148,11 @@ The collectors compared, on the library alone (a release harness reading
 
 | Collector | kernel diff (74 MB, 13,479 files) | 6× kernel diff (443 MB) |
 |---|---|---|
-| `ChangedLines` | 0.11 s, 22 MB | 0.56 s, 19 MB |
+| `ChangedLineNumbers` | 0.11 s, 22 MB | 0.56 s, 19 MB |
 | `DiffSummary` | 0.13 s, 24 MB | 0.76 s, 59 MB |
 | `Diff` (full model) | 0.20 s, 187 MB | 1.25 s, 1.1 GB |
 
-`ChangedLines` stays flat; the summary grows with the file count (about
+`ChangedLineNumbers` stays flat; the summary grows with the file count (about
 500 bytes per file: its header, two paths, and array slack); the full
 model grows with the content, peaking at about 2.5× the diff.
 

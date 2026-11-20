@@ -6,7 +6,7 @@ Add the package, get a diff, and find out which lines it changes.
 
 The most common question about a diff is which lines it touches: a
 linter or a code-review bot reports only the warnings on lines a pull
-request changed. ``ChangedLines`` answers it, and it is where this
+request changed. ``ChangedLineNumbers`` answers it, and it is where this
 article starts. <doc:ChoosingACollector> covers the collectors that
 keep more of the diff.
 
@@ -91,11 +91,11 @@ let diffText = """
     """
 ```
 
-``ChangedLines/init(diff:)`` parses it and keeps, for each file, the
+``ChangedLineNumbers/init(diff:)`` parses it and keeps, for each file, the
 new-side line numbers it adds, as ranges:
 
 ```swift
-let changes = ChangedLines(diff: diffText)
+let changes = ChangedLineNumbers(diff: diffText)
 let paths = changes.sortedPaths   // ["README.md", "Sources/App/Greeting.swift"]
 let greeting = changes.ranges(in: "Sources/App/Greeting.swift")   // [2...3]
 
@@ -104,13 +104,13 @@ let isNextChanged = changes.contains(line: 4, in: "Sources/App/Greeting.swift") 
 let isNearChange = changes.contains(line: 4, in: "Sources/App/Greeting.swift", tolerance: 1)   // true
 ```
 
-``ChangedLines/contains(line:in:tolerance:)`` is a binary search over
+``ChangedLineNumbers/contains(line:in:tolerance:)`` is a binary search over
 the ranges. With a tolerance, it also matches lines near a changed one,
 for tools that report a warning a line or two away from its cause.
 
 ### What counts as changed
 
-``ChangedLines`` follows the rules a "warnings on changed lines" check
+``ChangedLineNumbers`` follows the rules a "warnings on changed lines" check
 needs:
 
 - **Line numbers are new-side numbers**, the ones in the changed files,
@@ -142,17 +142,17 @@ needs:
 
 ### Read large diffs in chunks
 
-``ChangedLines/init(diff:)`` needs the whole diff in memory. For a large
-one, feed it to a ``DiffEventParser`` with a ``ChangedLines/Collector`` a
+``ChangedLineNumbers/init(diff:)`` needs the whole diff in memory. For a large
+one, feed it to a ``DiffEventParser`` with a ``ChangedLineNumbers/Collector`` a
 chunk at a time and finalize it once; chunks can end anywhere, even
 inside a line:
 
 ```swift
-var parser = DiffEventParser(consumer: ChangedLines.Collector())
+var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
 while let chunk = readSomeBytes() {
     parser.consume(chunk)
 }
-let streamed = parser.finalize().changedLines   // the same, for any chunking
+let streamed = parser.finalize().changedLineNumbers   // the same, for any chunking
 ```
 
 <doc:Streaming> shows how to read a file, standard input, or an async
@@ -162,4 +162,4 @@ sequence this way, and how to write a consumer of your own.
 
 - <doc:ChoosingACollector>
 - <doc:Streaming>
-- ``ChangedLines``
+- ``ChangedLineNumbers``

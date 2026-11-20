@@ -4,14 +4,15 @@
 /// collectors, the full model with its own options.
 struct ParseResults: Equatable {
     var events: [EventRecorder.Event]
-    var changedLines: ChangedLines
+    var changedLineNumbers: ChangedLineNumbers
     var summary: DiffSummary
     var diff: Diff
 
     init(of bytes: [UInt8], chunkSizes: [Int] = [.max]) {
         events = DiffEventParser.collect(EventRecorder(), from: bytes, chunkSizes: chunkSizes).events
-        changedLines = DiffEventParser.collect(ChangedLines.Collector(), from: bytes, chunkSizes: chunkSizes)
-            .changedLines
+        changedLineNumbers = DiffEventParser
+            .collect(ChangedLineNumbers.Collector(), from: bytes, chunkSizes: chunkSizes)
+            .changedLineNumbers
         summary = DiffEventParser.collect(DiffSummary.Collector(), from: bytes, chunkSizes: chunkSizes).summary
         diff = DiffEventParser.collect(Diff.Collector(), from: bytes, chunkSizes: chunkSizes, options: .fullModel)
             .diff
@@ -21,7 +22,7 @@ struct ParseResults: Equatable {
     func differences(from other: Self) -> [String] {
         [
             events == other.events ? nil : "events",
-            changedLines == other.changedLines ? nil : "ChangedLines",
+            changedLineNumbers == other.changedLineNumbers ? nil : "ChangedLineNumbers",
             summary == other.summary ? nil : "DiffSummary",
             diff == other.diff ? nil : "Diff",
         ].compactMap(\.self)

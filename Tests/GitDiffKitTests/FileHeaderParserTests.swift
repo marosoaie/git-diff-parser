@@ -162,7 +162,7 @@ struct FileHeaderParserTests {
         let bytes = PathQuoting.unquoted(Array(quoted.utf8)[...])
         #expect(bytes == [7, 8, 12, 10, 13, 9, 11, 34, 92, 65, 0xC3, 0xA9, 0xFF, UInt8(ascii: "q")])
         #expect(PathQuoting.unquoted(Array("plain path".utf8)[...]) == Array("plain path".utf8))
-        // ChangedLines keys come from the same bytes, decoded lossily.
+        // ChangedLineNumbers keys come from the same bytes, decoded lossily.
         let diff = """
             --- /dev/null
             +++ \(quoted)
@@ -170,6 +170,6 @@ struct FileHeaderParserTests {
             +x
 
             """
-        #expect(ChangedLines(diff: diff).lineSets == [String(decoding: bytes, as: UTF8.self): [1]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == [String(decoding: bytes, as: UTF8.self): [1]])
     }
 }

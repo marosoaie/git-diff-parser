@@ -189,7 +189,7 @@ extension MalformedInputTests {
         // As for /dev/null, the missing side has no path.
         #expect(headers.first?.oldPath == (change == .added ? nil : path))
         #expect(headers.first?.newPath == (change == .deleted ? nil : path))
-        #expect(ChangedLines(diff: diff).lineSets == (change == .deleted ? [:] : ["file.txt": [1]]))
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == (change == .deleted ? [:] : ["file.txt": [1]]))
     }
 
     // Accepted divergence from 0.1: such a deletion recorded its added
@@ -206,6 +206,6 @@ extension MalformedInputTests {
 
             """
         #expect(Self.headers(diff).map(\.change) == [.deleted])
-        #expect(ChangedLines(diff: diff).files.isEmpty)
+        #expect(ChangedLineNumbers(diff: diff).files.isEmpty)
     }
 }

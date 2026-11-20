@@ -19,7 +19,7 @@ struct RealDiffTests {
 
     @Test("swiftlang/swift PR #70000 parses to numstat-verified totals")
     func swiftPR70000() throws {
-        let changes = ChangedLines(diff: try Self.loadFixture())
+        let changes = ChangedLineNumbers(diff: try Self.loadFixture())
 
         #expect(changes.files.count == 12)
         #expect(changes.files.values.reduce(0) { $0 + $1.lineCount } == 437)
@@ -34,18 +34,18 @@ struct RealDiffTests {
     @Test("real diff parses identically through any chunking")
     func chunkedRealDiff() throws {
         let fixture = try Self.loadFixture()
-        let wholeString = ChangedLines(diff: fixture)
+        let wholeString = ChangedLineNumbers(diff: fixture)
 
         let bytes = Array(fixture.utf8)
         for chunkSize in [1, 379, 4096] {
-            var parser = DiffEventParser(consumer: ChangedLines.Collector())
+            var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
             var index = 0
             while index < bytes.count {
                 let end = min(index + chunkSize, bytes.count)
                 parser.consume(bytes[index..<end])
                 index = end
             }
-            #expect(parser.finalize().changedLines == wholeString, "chunk size \(chunkSize)")
+            #expect(parser.finalize().changedLineNumbers == wholeString, "chunk size \(chunkSize)")
         }
     }
 }

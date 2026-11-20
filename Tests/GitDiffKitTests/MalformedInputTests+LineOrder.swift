@@ -19,7 +19,7 @@ extension MalformedInputTests {
     @Test("hunks that run backwards or overlap add exactly their lines", arguments: [false, true])
     func backwardHunks(filePerLine: Bool) {
         let lines = [30, 10, 20, 10, 11, 9, 50, 1, 2, 3, 40, 39]
-        let changes = ChangedLines(diff: Self.diff(adding: lines, filePerLine: filePerLine))
+        let changes = ChangedLineNumbers(diff: Self.diff(adding: lines, filePerLine: filePerLine))
         #expect(changes.ranges(in: "f") == [1...3, 9...11, 20...20, 30...30, 39...40, 50...50])
     }
 
@@ -28,36 +28,39 @@ extension MalformedInputTests {
         var generator = SplitMix64(seed: 7)
         let lines = (0..<600).map { _ in generator.next(in: 1...2000) }
         let bytes = Array(Self.diff(adding: lines, filePerLine: true).utf8)
-        var parser = DiffEventParser(consumer: ChangedLines.Collector())
+        var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
         parser.consume(bytes)
         // The last file is still open until the parser is finalized.
-        #expect(parser.consumer.changedLines.lineSets == ["f": Set(lines.dropLast())])
-        #expect(parser.finalize().changedLines.lineSets == ["f": Set(lines)])
+        #expect(parser.consumer.changedLineNumbers.lineNumberSets == ["f": Set(lines.dropLast())])
+        #expect(parser.finalize().changedLineNumbers.lineNumberSets == ["f": Set(lines)])
     }
 
     @Test("a file revisiting its lines keeps its pending runs merged, not one per hunk")
     func revisitedLinesStayMerged() {
         let lines = (0..<5_000).map { $0.isMultiple(of: 2) ? 3 : 1 }
-        var parser = DiffEventParser(consumer: ChangedLines.Collector())
+        var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
         parser.consume(Array(Self.diff(adding: lines, filePerLine: false).utf8))
         // The file is still open, so its lines are all pending.
-        #expect(parser.consumer.runs.count < ChangedLines.Collector.minimumRunLimit)
-        #expect(parser.finalize().changedLines.ranges(in: "f") == [1...1, 3...3])
+        #expect(parser.consumer.runs.count < ChangedLineNumbers.Collector.minimumRunLimit)
+        #expect(parser.finalize().changedLineNumbers.ranges(in: "f") == [1...1, 3...3])
     }
 
     @Test("lines revisited in one file come out as their union across merges of the pending runs")
     func revisitedLinesUnion() {
         var generator = SplitMix64(seed: 11)
         let lines = (0..<5_000).map { _ in generator.next(in: 1...3000) }
-        #expect(ChangedLines(diff: Self.diff(adding: lines, filePerLine: false)).lineSets == ["f": Set(lines)])
+        let changes = ChangedLineNumbers(diff: Self.diff(adding: lines, filePerLine: false))
+        #expect(changes.lineNumberSets == ["f": Set(lines)])
     }
 
     @Test("added lines at the ends of the Int range neither overflow nor merge wrongly")
     func extremeLineNumbers() {
         // The parser caps line numbers, but events built by hand needn't be.
-        var collector = ChangedLines.Collector()
+        var collector = ChangedLineNumbers.Collector()
         Self.feed([Int.max - 1, Int.max, Int.max, Int.min, Int.min + 1, 0], filePerLine: false, to: &collector)
-        #expect(collector.changedLines.ranges(in: "f") == [Int.min...(Int.min + 1), 0...0, (Int.max - 1)...Int.max])
+        #expect(
+            collector.changedLineNumbers.ranges(in: "f") == [Int.min...(Int.min + 1), 0...0, (Int.max - 1)...Int.max]
+        )
     }
 
     @Test("lines in any order cost about what ascending lines cost, not quadratic time")
@@ -73,18 +76,18 @@ extension MalformedInputTests {
     }
 
     private static func collectionTime(of lines: [Int], filePerLine: Bool) -> Duration {
-        var collector = ChangedLines.Collector()
+        var collector = ChangedLineNumbers.Collector()
         let elapsed = ContinuousClock().measure {
             feed(lines, filePerLine: filePerLine, to: &collector)
-            _ = collector.changedLines
+            _ = collector.changedLineNumbers
         }
-        #expect(collector.changedLines.files["f"]?.ranges.count == lines.count)
+        #expect(collector.changedLineNumbers.files["f"]?.ranges.count == lines.count)
         return elapsed
     }
 
     /// Sends `collector` the events adding a line to `f` at each of `lines`,
     /// in that order: in one file, or in a file per line.
-    private static func feed(_ lines: [Int], filePerLine: Bool, to collector: inout ChangedLines.Collector) {
+    private static func feed(_ lines: [Int], filePerLine: Bool, to collector: inout ChangedLineNumbers.Collector) {
         let path = DiffPath(Array("f".utf8))
         let header = FileHeader(format: .git, change: .modified, oldPath: path, newPath: path)
         let none: [UInt8] = []

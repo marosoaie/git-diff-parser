@@ -173,7 +173,7 @@ Steward already asks git for `--no-color`. Whether the library should
 strip the escapes, report the input as damaged, or keep this behaviour
 is a public API question. The maintainer's answer: document it now and
 decide in step 5.1. So `DiffEventParser`, `Diff`, `DiffSummary` and
-`ChangedLines` say a coloured diff reads as no files and no damage, and
+`ChangedLineNumbers` say a coloured diff reads as no files and no damage, and
 to pass `--no-color`, as do Getting Started, the README and
 INTERNALS.md; the behaviour is unchanged, and no test pins it.
 
@@ -236,7 +236,7 @@ A fresh agent, given the README and the Getting Started article it
 links and no source, made a new executable package in the `swift:6.2`
 container (Swift 6.2.4, aarch64): the README's `Package.swift` with the
 names changed, and a program that reads a diff file into a `String` and
-prints `ChangedLines`' paths and ranges. It resolved 0.2.0, built, and
+prints `ChangedLineNumbers`' paths and ranges. It resolved 0.2.0, built, and
 listed the right lines the first time, about two minutes in all, for
 three diffs from CocoaLumberjack's history, which it spot-checked
 against `git diff -U0`. It got stuck nowhere, and three things confused

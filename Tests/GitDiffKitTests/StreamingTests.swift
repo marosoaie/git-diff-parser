@@ -12,7 +12,7 @@ struct LineRangeSetTests {
         }
         #expect(ranges.ranges == [1...3, 7...8, 20...20])
         #expect(ranges.lineCount == 6)
-        #expect(ranges.allLines == [1, 2, 3, 7, 8, 20])
+        #expect(ranges.allLineNumbers == [1, 2, 3, 7, 8, 20])
     }
 
     @Test("duplicate and out-of-order inserts normalize")
@@ -137,8 +137,8 @@ struct StreamingTests {
 
     @Test("whole-string parse matches expectations")
     func wholeString() {
-        let changes = ChangedLines(diff: Self.fixture)
-        #expect(changes.lineSets == Self.expected)
+        let changes = ChangedLineNumbers(diff: Self.fixture)
+        #expect(changes.lineNumberSets == Self.expected)
         // The generated file must collapse to a single range.
         #expect(changes.ranges(in: "Big.swift") == [1...5000])
     }
@@ -149,16 +149,16 @@ struct StreamingTests {
     )
     func chunkedEquivalence(chunkSize: Int) {
         let bytes = Array(Self.fixture.utf8)
-        var parser = DiffEventParser(consumer: ChangedLines.Collector())
+        var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
         var index = 0
         while index < bytes.count {
             let end = min(index + chunkSize, bytes.count)
             parser.consume(bytes[index..<end])
             index = end
         }
-        let changes = parser.finalize().changedLines
-        #expect(changes == ChangedLines(diff: Self.fixture))
-        #expect(changes.lineSets == Self.expected)
+        let changes = parser.finalize().changedLineNumbers
+        #expect(changes == ChangedLineNumbers(diff: Self.fixture))
+        #expect(changes.lineNumberSets == Self.expected)
     }
 
     @Test("input without a trailing newline still counts the last line")
@@ -172,7 +172,7 @@ struct StreamingTests {
             +one
             +two
             """
-        #expect(ChangedLines(diff: diff).lineSets == ["f.txt": [1, 2]])
+        #expect(ChangedLineNumbers(diff: diff).lineNumberSets == ["f.txt": [1, 2]])
     }
 
     @Test("CRLF line endings parse identically to LF")
@@ -188,8 +188,8 @@ struct StreamingTests {
 
             """
         let crlf = lf.replacingOccurrences(of: "\n", with: "\r\n")
-        #expect(ChangedLines(diff: crlf) == ChangedLines(diff: lf))
-        #expect(ChangedLines(diff: crlf).lineSets == ["f.txt": [2]])
+        #expect(ChangedLineNumbers(diff: crlf) == ChangedLineNumbers(diff: lf))
+        #expect(ChangedLineNumbers(diff: crlf).lineNumberSets == ["f.txt": [2]])
     }
 
     @Test("over-long lines truncate uniformly, independent of chunking")
@@ -206,19 +206,19 @@ struct StreamingTests {
             +z
 
             """
-        let whole = ChangedLines(diff: diff)
-        #expect(whole.lineSets == ["f": [2]])
+        let whole = ChangedLineNumbers(diff: diff)
+        #expect(whole.lineNumberSets == ["f": [2]])
 
         let bytes = Array(diff.utf8)
         for chunkSize in [1 << 14, (1 << 20) + 37] {
-            var parser = DiffEventParser(consumer: ChangedLines.Collector())
+            var parser = DiffEventParser(consumer: ChangedLineNumbers.Collector())
             var index = 0
             while index < bytes.count {
                 let end = min(index + chunkSize, bytes.count)
                 parser.consume(bytes[index..<end])
                 index = end
             }
-            #expect(parser.finalize().changedLines == whole, "chunk size \(chunkSize)")
+            #expect(parser.finalize().changedLineNumbers == whole, "chunk size \(chunkSize)")
         }
     }
 }

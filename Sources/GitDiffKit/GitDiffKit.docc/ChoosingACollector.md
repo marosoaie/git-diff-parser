@@ -8,7 +8,7 @@ file, or all of it.
 A collector is a ``DiffEventConsumer`` that keeps part of what the
 parser reads. GitDiffKit ships three, from least to most:
 
-| | ``ChangedLines`` | ``DiffSummary`` | ``Diff`` |
+| | ``ChangedLineNumbers`` | ``DiffSummary`` | ``Diff`` |
 |---|---|---|---|
 | Keeps | Each file's added lines, as ranges of new-side numbers | Each file's header (status, paths, modes) and its added and deleted line counts | Everything: headers, hunks, every line's content, and the text around them |
 | Paths | `String` | ``DiffPath`` (bytes) | ``DiffPath`` (bytes) |
@@ -20,7 +20,7 @@ parser reads. GitDiffKit ships three, from least to most:
 The last two rows were measured on the Linux 6.6→6.7 release diff
 (13,479 files) and on six copies of it, read in 4 MiB chunks by a
 release build on an Apple M4 with Swift 6.4. Memory is the process's
-peak resident size, the input buffer included. ``ChangedLines`` stays
+peak resident size, the input buffer included. ``ChangedLineNumbers`` stays
 flat as the input grows, the summary grows with the file count (about
 500 bytes per file), and the full model with the content. On hostile
 input, the damage reports the summary and the full model keep can grow
@@ -32,7 +32,7 @@ adds a line to `README.md`, and deletes `Legacy.swift`.
 
 ### Changed lines
 
-``ChangedLines`` is for questions about lines: is this warning on a line
+``ChangedLineNumbers`` is for questions about lines: is this warning on a line
 the diff changed? It records only added lines, under each file's new
 path, so it is small and flat however large the diff:
 
@@ -48,9 +48,9 @@ let warnings = [
     Warning(path: "Sources/App/Greeting.swift", line: 9, message: "line too long"),
     Warning(path: "Sources/App/Legacy.swift", line: 1, message: "file deleted"),
 ]
-let changes = ChangedLines(diff: diffText)
-let onChangedLines = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
-print(onChangedLines.map(\.message))   // ["unused variable"]
+let changes = ChangedLineNumbers(diff: diffText)
+let relevant = warnings.filter { changes.contains(line: $0.line, in: $0.path) }
+print(relevant.map(\.message))   // ["unused variable"]
 ```
 
 Its rules — new-side numbers, additions only, `String` paths that
@@ -119,7 +119,7 @@ entry points, ``Diff/init(diff:)-(String)`` and
 ``DiffEventParser/init(options:)``, raise the line cap from 1 MiB to
 64 MiB (``ParsingOptions/fullModel``), so content is kept whole up to
 that length. For diffs too large to hold, use a summary,
-``ChangedLines``, or a consumer of your own, whose memory doesn't grow
+``ChangedLineNumbers``, or a consumer of your own, whose memory doesn't grow
 with content.
 
 ### Render a diff back
@@ -161,7 +161,7 @@ The text differs from the input only where the model doesn't keep it:
 All three skip the hunks of a merge's combined diff (`diff --cc` or
 `diff --combined`, which `git show` prints for a merge commit): the
 parser recognizes them, so their lines can't be mistaken for another
-file's, but reports no lines for them. ``ChangedLines`` gets nothing
+file's, but reports no lines for them. ``ChangedLineNumbers`` gets nothing
 from such a file; ``DiffSummary`` and ``Diff`` list it with format
 ``FileHeader/Format-swift.enum/combined(parents:)``, no line counts,
 and no hunks. For the lines a merge changed, diff it against its first

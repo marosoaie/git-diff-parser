@@ -121,7 +121,7 @@ struct CombinedDiffTests {
             #expect(headers.map(\.format) == [.combined(parents: parents)])
             #expect(headers.map(\.newPath) == [DiffPath(Array(path.utf8))])
             #expect(events.filter { $0 == .endFile }.count == 1)
-            #expect(ChangedLines(diff: text).files.isEmpty)
+            #expect(ChangedLineNumbers(diff: text).files.isEmpty)
         }
     }
 
@@ -150,7 +150,9 @@ struct CombinedDiffTests {
                 .line(LineInfo(kind: .context, oldNumber: 3, newNumber: 3), content: Array("c".utf8)),
                 .endFile,
             ])
-            #expect(ChangedLines(diff: String(decoding: diff, as: UTF8.self)).lineSets == ["merged.txt": [2]])
+            #expect(
+                ChangedLineNumbers(diff: String(decoding: diff, as: UTF8.self)).lineNumberSets == ["merged.txt": [2]]
+            )
         }
     }
 }

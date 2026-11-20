@@ -70,7 +70,7 @@ closures rather than subclassing.
 
 **Swift API Design Guidelines** for all public API: argument labels that
 read as prose (`contains(line:in:tolerance:)`), initializers for conversions
-(`ChangedLines(diff:)`), `consume(...)`/`finalize()` for streaming builders.
+(`ChangedLineNumbers(diff:)`), `consume(...)`/`finalize()` for streaming builders.
 Every public symbol carries a doc comment that starts with a one-sentence
 summary; document behavioral quirks (normalization, performance caveats) at
 the declaration. Public model types get explicit public memberwise

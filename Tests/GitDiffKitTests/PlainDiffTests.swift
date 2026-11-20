@@ -67,7 +67,9 @@ struct PlainDiffTests {
             #expect(String(decoding: summary, as: UTF8.self) == " delete gone.txt\n create sub/added.txt\n")
             Oracle.expectEqualLines(GitApply.summary(of: files), summary)
             Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: url))
-            #expect(ChangedLines(diff: text).lineSets == ["new/mod.txt": [2, 3], "new/sub/added.txt": [1, 2]])
+            #expect(
+                ChangedLineNumbers(diff: text).lineNumberSets == ["new/mod.txt": [2, 3], "new/sub/added.txt": [1, 2]]
+            )
         }
     }
 
@@ -86,7 +88,9 @@ struct PlainDiffTests {
             let files = try Self.files(inDiffAt: url)
             #expect(files.map(\.header.change) == [.modified, .modified, .modified])
             Oracle.expectEqualEntries(GitApply.numstat(of: files), try GitApply.numstat(forDiffAt: url))
-            #expect(ChangedLines(diff: text).lineSets == ["new/mod.txt": [2, 3], "new/sub/added.txt": [1, 2]])
+            #expect(
+                ChangedLineNumbers(diff: text).lineNumberSets == ["new/mod.txt": [2, 3], "new/sub/added.txt": [1, 2]]
+            )
         }
     }
 }
