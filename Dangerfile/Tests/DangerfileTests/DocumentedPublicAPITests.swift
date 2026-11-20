@@ -177,6 +177,24 @@ struct DocumentedPublicAPITests {
         #expect(try await Checks.documentedPublicAPI.evaluate(context).isEmpty)
     }
 
+    @Test("a deinit and a freestanding macro in a public type aren't symbols")
+    func notSymbols() async throws {
+        let added = SampleDiff.adding("Sources/GitDiffKit/Handle.swift", """
+            /// A handle.
+            public struct Handle: ~Copyable {
+                deinit {}
+            }
+            /// A diff.
+            public struct Diff {}
+            public extension Diff {
+                #warning("later")
+            }
+
+            """)
+        let context = try Context.fixture(diff: added.diff, files: added.files)
+        #expect(try await Checks.documentedPublicAPI.evaluate(context).isEmpty)
+    }
+
     @Test("an undocumented public function in the tests isn't the rule's")
     func tests() async throws {
         let added = SampleDiff.adding("Tests/GitDiffKitTests/Support.swift", "public func fixture() {}\n")

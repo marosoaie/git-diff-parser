@@ -101,10 +101,11 @@ struct Checks: Dangerfile {
         let functions = file.functions
             .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
             .map { ($0.name, $0.location) }
-        // A member function or type is in `functions` or `types` already.
+        // A member function or type is in `functions` or `types` already, and
+        // a `deinit` or a freestanding macro such as `#warning` isn't a symbol.
         let members = file.memberBlocks
             .flatMap { block in block.members.map { (member: $0, block: Syntax(block.syntax)) } }
-            .filter { $0.member.kind != .function && $0.member.kind != .type }
+            .filter { ![.function, .type, .deinitializer, .macroExpansion].contains($0.member.kind) }
             .filter { isUndocumented($0.member.access, $0.member.documentation, $0.block) }
             .map { ($0.member.name, $0.member.location) }
         return (types + functions + members)
