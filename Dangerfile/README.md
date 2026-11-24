@@ -15,7 +15,7 @@ the release `Package.resolved` pins, as Steward's
 sets a Dangerfile up; `swift package update --package-path Dangerfile`
 takes 0.4.x's fixes. The rules about the library's Swift source come from
 [steward-lang-swift](https://github.com/marosoaie/steward-lang-swift)
-0.3.x, which parses with swift-syntax and builds against Steward 0.4, so
+0.4.x, which parses with swift-syntax and builds against Steward 0.4, so
 moving to Steward's next minor release waits for a steward-lang-swift
 release that takes it.
 

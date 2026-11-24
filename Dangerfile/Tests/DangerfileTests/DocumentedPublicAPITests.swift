@@ -177,6 +177,43 @@ struct DocumentedPublicAPITests {
         #expect(try await Checks.documentedPublicAPI.evaluate(context).isEmpty)
     }
 
+    @Test("a public global let, var, typealias or macro without a doc comment is a warning")
+    func globals() async throws {
+        let added = SampleDiff.adding("Sources/GitDiffKit/Defaults.swift", """
+            public let contextLines = 3
+            /// The longest line.
+            public let maximumLineLength = 4096
+            public var isVerbose = false
+            public typealias LineNumber = Int
+            /// A path in the repository.
+            public typealias Path = String
+            let hidden = 0
+            typealias Hidden = Int
+            public macro Stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "M", type: "T")
+
+            """)
+        let context = try Context.fixture(diff: added.diff, files: added.files)
+        #expect(try await Checks.documentedPublicAPI.evaluate(context) == [
+            .warning("Public `contextLines` has no doc comment (AGENTS.md).", at: Self.defaults(line: 1)),
+            .warning("Public `isVerbose` has no doc comment (AGENTS.md).", at: Self.defaults(line: 4)),
+            .warning("Public `LineNumber` has no doc comment (AGENTS.md).", at: Self.defaults(line: 5)),
+            .warning("Public `Stringify` has no doc comment (AGENTS.md).", at: Self.defaults(line: 10)),
+        ])
+    }
+
+    @Test("a public member of an extension is public, though the type extended isn't, as it may be in another file")
+    func extensionMember() async throws {
+        let added = SampleDiff.adding("Sources/GitDiffKit/Index.swift", """
+            struct Index {}
+            extension Index {
+                public var count: Int { 0 }
+            }
+
+            """)
+        let context = try Context.fixture(diff: added.diff, files: added.files)
+        #expect(try await Checks.documentedPublicAPI.evaluate(context).map(\.location?.line) == [3])
+    }
+
     @Test("a deinit and a freestanding macro in a public type aren't symbols")
     func notSymbols() async throws {
         let added = SampleDiff.adding("Sources/GitDiffKit/Handle.swift", """
@@ -204,5 +241,9 @@ struct DocumentedPublicAPITests {
 
     static func hunk(line: Int) -> Location {
         Location(path: "Sources/GitDiffKit/Hunk.swift", line: line)
+    }
+
+    static func defaults(line: Int) -> Location {
+        Location(path: "Sources/GitDiffKit/Defaults.swift", line: line)
     }
 }
