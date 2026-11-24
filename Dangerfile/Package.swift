@@ -18,7 +18,7 @@ let package = Package(
         // Each 0.x minor release builds against one Steward minor release,
         // so moving to Steward's next one waits for a release of this that
         // takes it.
-        .package(url: "https://github.com/marosoaie/steward-lang-swift.git", .upToNextMinor(from: "0.3.0")),
+        .package(url: "https://github.com/marosoaie/steward-lang-swift.git", .upToNextMinor(from: "0.4.0")),
     ],
     targets: [
         .executableTarget(

@@ -75,39 +75,34 @@ struct Checks: Dangerfile {
     }
 
     /// Every public symbol carries a doc comment (AGENTS.md): each public
-    /// type, function or member in the library's sources without one is a
-    /// warning at its declaration, in line order. A requirement of a public
-    /// protocol is public, and so is a member of a `public extension`; a
-    /// declaration inside a type that isn't public isn't, whatever it says.
+    /// type, function, member or global in the library's sources without one
+    /// is a warning at its declaration, in line order. A requirement of a
+    /// public protocol is public, and so is a member of a `public extension`;
+    /// a declaration inside a type that isn't public isn't, whatever it says.
+    /// A member of an extension is taken at its word, since the type extended
+    /// may be declared in another file.
     ///
     /// It checks the whole of each file the pull request changes, so that
     /// making a type, a protocol or an extension public reports what that
-    /// exposes, at any depth. Top-level `let`, `var` and `typealias` aren't
-    /// in steward-lang-swift's model, so it doesn't see them.
+    /// exposes, at any depth.
     static let documentedPublicAPI = Rule.swiftSource(
         "Documented public API", in: "Sources/**/*.swift", reporting: .changedFiles
     ) { file in
-        let typeAccess = Dictionary(file.types.map { ($0.syntax.id, $0.access.level) }) { first, _ in first }
-        // An extension's type may be declared in another file, so only types cap.
-        let enclosingAccess = { (node: Syntax) in
-            sequence(first: node, next: \.parent).compactMap { typeAccess[$0.id] }.min() ?? .open
-        }
-        let isUndocumented = { (access: AccessLevel, documentation: String?, node: Syntax) in
-            documentation == nil && min(access.level, enclosingAccess(node)) >= .public
+        let isUndocumented = { (documentation: String?, access: AccessLevel.Level) in
+            documentation == nil && access >= .public
         }
         let types = file.types
-            .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
+            .filter { isUndocumented($0.documentation, $0.effectiveAccess) }
             .map { ($0.name, $0.location) }
         let functions = file.functions
-            .filter { isUndocumented($0.access, $0.documentation, Syntax($0.syntax)) }
+            .filter { isUndocumented($0.documentation, $0.effectiveAccess) }
             .map { ($0.name, $0.location) }
-        // A member function or type is in `functions` or `types` already, and
-        // a `deinit` or a freestanding macro such as `#warning` isn't a symbol.
-        let members = file.memberBlocks
-            .flatMap { block in block.members.map { (member: $0, block: Syntax(block.syntax)) } }
-            .filter { ![.function, .type, .deinitializer, .macroExpansion].contains($0.member.kind) }
-            .filter { isUndocumented($0.member.access, $0.member.documentation, $0.block) }
-            .map { ($0.member.name, $0.member.location) }
+        // A function or type is in `functions` or `types` already, and a
+        // `deinit` or a freestanding macro such as `#warning` isn't a symbol.
+        let members = (file.memberBlocks.flatMap(\.members) + file.topLevelMembers)
+            .filter { ![.function, .type, .deinitializer, .macroExpansion].contains($0.kind) }
+            .filter { isUndocumented($0.documentation, $0.effectiveAccess) }
+            .map { ($0.name, $0.location) }
         return (types + functions + members)
             .sorted { ($0.1.line ?? 0) < ($1.1.line ?? 0) }
             .map { name, location in

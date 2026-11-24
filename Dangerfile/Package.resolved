@@ -1,5 +1,5 @@
 {
-  "originHash" : "47d0f7e89c18a5c229d465715c9440246c731dcd9c8cf912e074ae72d59940a7",
+  "originHash" : "17a1ace2ce460792eb10454c53865e974e5648bf489128bf27acc7dbf45d442c",
   "pins" : [
     {
       "identity" : "git-diff-parser",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/marosoaie/steward-lang-swift.git",
       "state" : {
-        "revision" : "14df4c4c7f90c8749433aa7c7b083ac1b98f6ebd",
-        "version" : "0.3.0"
+        "revision" : "9f19ce01be7a6d952206e5ba631a9b360932f6f5",
+        "version" : "0.4.0"
       }
     },
     {
