@@ -177,7 +177,7 @@ struct DocumentedPublicAPITests {
         #expect(try await Checks.documentedPublicAPI.evaluate(context).isEmpty)
     }
 
-    @Test("a public global let, var or typealias without a doc comment is a warning")
+    @Test("a public global let, var, typealias or macro without a doc comment is a warning")
     func globals() async throws {
         let added = SampleDiff.adding("Sources/GitDiffKit/Defaults.swift", """
             public let contextLines = 3
@@ -189,6 +189,7 @@ struct DocumentedPublicAPITests {
             public typealias Path = String
             let hidden = 0
             typealias Hidden = Int
+            public macro Stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "M", type: "T")
 
             """)
         let context = try Context.fixture(diff: added.diff, files: added.files)
@@ -196,6 +197,7 @@ struct DocumentedPublicAPITests {
             .warning("Public `contextLines` has no doc comment (AGENTS.md).", at: Self.defaults(line: 1)),
             .warning("Public `isVerbose` has no doc comment (AGENTS.md).", at: Self.defaults(line: 4)),
             .warning("Public `LineNumber` has no doc comment (AGENTS.md).", at: Self.defaults(line: 5)),
+            .warning("Public `Stringify` has no doc comment (AGENTS.md).", at: Self.defaults(line: 10)),
         ])
     }
 
